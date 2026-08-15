@@ -198,7 +198,7 @@
    Supabase → Project Settings → API 에서 복사합니다.
    ══════════════════════════════════════════════════════════════ */
 const SUPABASE_URL      = "https://mmmyzlplgemewjhapwwk.supabase.co/rest/v1/";
-const SUPABASE_ANON_KEY = "xogus0361A540663!";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1tbXl6bHBsZ2VtZXdqaGFwd3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3ODQwMjAsImV4cCI6MjEwMjM2MDAyMH0.tSloDZIat5jcp2h_BaqYye4zWDcoI-X1og4EnsGwyRA";
 /* ══════════════════════════════════════════════════════════════
    ▲▲▲  나머지는 건드리지 마세요  ▲▲▲
    ══════════════════════════════════════════════════════════════ */
@@ -209,18 +209,31 @@ const SUPABASE_ANON_KEY = "xogus0361A540663!";
 const COMPANIES = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const LEVEL_NAME = {1:"부자재 수령자",2:"업체 공구장",3:"부서 총괄 공구장",4:"총관리자"};
 
-if(String(SUPABASE_URL).indexOf("http")!==0){
-  document.getElementById("app").innerHTML=`<div class="setup">
-    <h1>서버 연결 설정이 필요합니다</h1>
+/* 붙여넣기 과정에서 섞이기 쉬운 공백·줄바꿈·따옴표를 자동으로 제거 */
+const CFG_URL = String(SUPABASE_URL).replace(/[\s"'`]/g,"").replace(/\/+$/,"");
+const CFG_KEY = String(SUPABASE_ANON_KEY).replace(/[\s"'`]/g,"");
+
+function setupScreen(title, bodyHtml){
+  document.getElementById("app").innerHTML=
+    `<div class="setup"><h1>${title}</h1>${bodyHtml}</div>`;
+}
+
+if(CFG_URL.indexOf("http")!==0 || CFG_KEY.length<20){
+  setupScreen("서버 연결 설정이 필요합니다",`
     <p style="line-height:1.7;font-size:13.5px;">이 파일 상단의 두 줄을 본인 Supabase 프로젝트 값으로 바꾼 뒤 다시 업로드하세요.</p>
     <pre>const SUPABASE_URL      = "https://mmmyzlplgemewjhapwwk.supabase.co/rest/v1/";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1tbXl6bHBsZ2VtZXdqaGFwd3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3ODQwMjAsImV4cCI6MjEwMjM2MDAyMH0.tSloDZIat5jcp2h_BaqYye4zWDcoI-X1og4EnsGwyRA";</pre>
     <p style="line-height:1.7;font-size:13.5px;">값은 Supabase 대시보드의 <code>Project Settings → API</code>에 있는
-    <b>Project URL</b>과 <b>anon public</b> 키입니다.</p></div>`;
+    <b>Project URL</b>과 <b>anon public</b>(또는 <b>publishable</b>) 키입니다.
+    <code>service_role</code> / <code>secret</code> 키는 절대 사용하지 마세요.</p>
+    <p style="line-height:1.7;font-size:13px;color:#5f7080;">현재 인식된 값 —
+    URL: <code>${CFG_URL?CFG_URL.slice(0,40):"(비어 있음)"}</code> ·
+    KEY 길이: <code>${CFG_KEY.length}</code>자</p>`);
   return;
 }
 
-const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = window.supabase.createClient(CFG_URL, CFG_KEY);
+let LAST_ERR = null;
 
 let S = {
   user:null, tab:"dash", authTab:"login", authMsg:null,
@@ -295,9 +308,9 @@ async function pull(){
     S.emergencies=(e.data||[]).map(M.emgIn);
     S.stocktakes=(s.data||[]).map(M.stkIn);
     if(S.user){ const me=S.users.find(x=>x.id===S.user.id); if(me) S.user=me; }
-    S.lastSync=Date.now(); setSync("ok"); return true;
+    S.lastSync=Date.now(); setSync("ok"); LAST_ERR=null; return true;
   }catch(err){
-    console.error(err); setSync("err");
+    console.error(err); setSync("err"); LAST_ERR=err;
     toast("서버 연결에 실패했습니다. 인터넷 상태를 확인하세요.",true);
     return false;
   }
@@ -1095,14 +1108,41 @@ function exportCSV(name,head,rows){
   document.getElementById("app").innerHTML=
     '<div style="padding:70px;text-align:center;color:#5f7080;font-size:13px;">서버에서 불러오는 중…</div>';
   if(!await pull()){
-    document.getElementById("app").innerHTML=`<div class="setup">
-      <h1>서버에 연결하지 못했습니다</h1>
-      <p style="line-height:1.7;font-size:13.5px;">다음을 확인해 주세요.</p>
-      <ul style="line-height:1.9;font-size:13.5px;">
-        <li>파일 상단의 <code>SUPABASE_URL</code> / <code>SUPABASE_ANON_KEY</code> 값이 정확한지</li>
-        <li>Supabase SQL Editor에서 설정 SQL을 실행했는지</li>
-        <li>인터넷 연결 상태</li></ul>
-      <button class="btn btn-primary" onclick="location.reload()">다시 시도</button></div>`;
+    const e=LAST_ERR||{};
+    const raw=[e.message,e.hint,e.details,e.code].filter(Boolean).join(" | ")||"알 수 없는 오류";
+    const t=raw.toLowerCase();
+    let cause, fix;
+    if(t.includes("invalid api key")||t.includes("jwt")||t.includes("unauthorized")||t.includes("401")||t.includes("no api key")){
+      cause="API 키가 유효하지 않습니다 (401).";
+      fix=`<ul style="line-height:1.9;font-size:13.5px;">
+        <li>Supabase <code>Project Settings → API</code>에서 키를 <b>복사 버튼</b>으로 다시 복사하세요. 드래그 복사는 끝이 잘리기 쉽습니다.</li>
+        <li><code>sb_publishable_...</code> 형태의 키가 보이면 <b>그 키를 쓰세요.</b> Legacy anon 키가 비활성화된 프로젝트일 수 있습니다.</li>
+        <li><code>service_role</code> / <code>secret</code> 키는 사용하면 안 됩니다.</li>
+        <li>Supabase 프로젝트를 여러 개 만들었다면, URL과 키가 <b>같은 프로젝트</b>의 것인지 확인하세요.</li></ul>`;
+    } else if(t.includes("does not exist")||t.includes("relation")||t.includes("schema cache")||t.includes("pgrst")){
+      cause="데이터베이스 테이블이 아직 만들어지지 않았습니다.";
+      fix=`<ul style="line-height:1.9;font-size:13.5px;">
+        <li>Supabase <code>SQL Editor → New query</code>에서 <code>supabase_setup.sql</code> 전체를 붙여넣고 <b>Run</b>을 실행하세요.</li>
+        <li>실행 후 <code>Table Editor</code>에 테이블 6개(users, items, logs, requests, emergencies, stocktakes)가 보이면 정상입니다.</li></ul>`;
+    } else if(t.includes("failed to fetch")||t.includes("networkerror")||t.includes("load failed")){
+      cause="서버 주소에 접속하지 못했습니다.";
+      fix=`<ul style="line-height:1.9;font-size:13.5px;">
+        <li><code>SUPABASE_URL</code>에 오타가 없는지 확인하세요. <code>https://</code>로 시작하고 <code>.supabase.co</code>로 끝나야 합니다.</li>
+        <li>사내망에서 외부 접속이 차단되어 있을 수 있습니다. 휴대폰 데이터로 접속해 보세요.</li></ul>`;
+    } else {
+      cause="예상하지 못한 오류입니다.";
+      fix=`<ul style="line-height:1.9;font-size:13.5px;">
+        <li>아래 오류 내용을 그대로 전달해 주시면 원인을 특정할 수 있습니다.</li></ul>`;
+    }
+    setupScreen("서버에 연결하지 못했습니다",`
+      <p style="line-height:1.7;font-size:14px;"><b>${cause}</b></p>
+      ${fix}
+      <div style="margin:16px 0;padding:12px;background:#f3f6f8;border-left:3px solid #d1462f;
+        border-radius:3px;font-family:'IBM Plex Mono';font-size:12px;word-break:break-all;color:#485663;">
+        ${String(raw).replace(/</g,"&lt;")}</div>
+      <p style="font-size:12.5px;color:#5f7080;">현재 설정 — URL <code>${CFG_URL.slice(0,45)}</code> ·
+        KEY <code>${CFG_KEY.slice(0,12)}…</code> (${CFG_KEY.length}자)</p>
+      <button class="btn btn-primary" onclick="location.reload()">다시 시도</button>`);
     return;
   }
   const sid=ls("bz_session");
