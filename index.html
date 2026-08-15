@@ -197,7 +197,7 @@
    ▼▼▼  여기 두 줄만 본인 것으로 바꾸세요  ▼▼▼
    Supabase → Project Settings → API 에서 복사합니다.
    ══════════════════════════════════════════════════════════════ */
-const SUPABASE_URL      = "https://mmmyzlplgemewjhapwwk.supabase.co";
+const SUPABASE_URL      = "https://mmmyzlplgemewjhapwwk.supabase.co/rest/v1/";
 const SUPABASE_ANON_KEY = "xogus0361A540663!";
 /* ══════════════════════════════════════════════════════════════
    ▲▲▲  나머지는 건드리지 마세요  ▲▲▲
@@ -213,7 +213,7 @@ if(String(SUPABASE_URL).indexOf("http")!==0){
   document.getElementById("app").innerHTML=`<div class="setup">
     <h1>서버 연결 설정이 필요합니다</h1>
     <p style="line-height:1.7;font-size:13.5px;">이 파일 상단의 두 줄을 본인 Supabase 프로젝트 값으로 바꾼 뒤 다시 업로드하세요.</p>
-    <pre>const SUPABASE_URL      = "https://mmmyzlplgemewjhapwwk.supabase.co";
+    <pre>const SUPABASE_URL      = "https://mmmyzlplgemewjhapwwk.supabase.co/rest/v1/";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1tbXl6bHBsZ2VtZXdqaGFwd3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3ODQwMjAsImV4cCI6MjEwMjM2MDAyMH0.tSloDZIat5jcp2h_BaqYye4zWDcoI-X1og4EnsGwyRA";</pre>
     <p style="line-height:1.7;font-size:13.5px;">값은 Supabase 대시보드의 <code>Project Settings → API</code>에 있는
     <b>Project URL</b>과 <b>anon public</b> 키입니다.</p></div>`;
