@@ -206,7 +206,13 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 (function(){
 "use strict";
 
-const COMPANIES = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
+const COMPANIES = ["멤브레인공사부","진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
+/* 멤브레인공사부는 관리 조직이며 불출 주체가 아님. 업체 통계에서 분리한다. */
+const DEPT = "멤브레인공사부";
+const VENDORS = COMPANIES.filter(c=>c!==DEPT);
+function isDept(u){ return u && u.company===DEPT; }
+/* 부서 소속 사용자가 업체별 화면을 볼 때 기본으로 보여줄 업체 */
+function defaultVendor(){ return isDept(S.user) ? VENDORS[0] : S.user.company; }
 const LEVEL_NAME = {1:"부자재 수령자",2:"업체 공구장",3:"부서 총괄 공구장",4:"총관리자"};
 
 /* 붙여넣기 과정에서 섞이기 쉬운 공백·줄바꿈·따옴표를 자동으로 제거 */
@@ -566,8 +572,9 @@ function viewWithdraw(){
     if(fa!==-1&&fb!==-1) return fa-fb; if(fa!==-1) return -1; if(fb!==-1) return 1;
     return a.name.localeCompare(b.name,"ko"); });
   const it=S.wItem?item(S.wItem):null;
-  const coOpts=COMPANIES.map(c=>`<option value="${esc(c)}" ${c===(S.wCompany||S.user.company)?"selected":""}>${esc(c)}</option>`).join("");
+  const coOpts=VENDORS.map(c=>`<option value="${esc(c)}" ${c===(S.wCompany||defaultVendor())?"selected":""}>${esc(c)}</option>`).join("");
   return `
+  ${isDept(S.user)?`<div class="msg msg-warn">멤브레인공사부 계정입니다. 협력업체를 대신해 등록할 때만 사용하고, 반드시 <b>실제 수령 업체</b>를 선택하세요.</div>`:""}
   ${S.wMsg?`<div class="msg ${S.wMsg.t==='e'?'msg-error':'msg-ok'}">${esc(S.wMsg.m)}</div>`:""}
   <div class="panel">
     <div class="panel-head"><div><h2>${S.wMode==="out"?"부자재 불출 등록":"부자재 반납 등록"}</h2>
@@ -630,6 +637,7 @@ function bindWithdraw(){
   if(sub) sub.onclick=async()=>{
     const it=item(S.wItem); if(!it||!S.wQty) return;
     const company=lv(3)?document.getElementById("wCo").value:S.user.company;
+    if(company===DEPT){ S.wMsg={t:"e",m:"멤브레인공사부는 관리 조직입니다. 불출 대상 협력업체를 선택하세요."}; return render(); }
     const taker=document.getElementById("wTaker").value.trim();
     const team=document.getElementById("wTeam").value.trim();
     const tv=document.getElementById("wTime").value;
@@ -663,7 +671,7 @@ function viewEmg(){
   const st={pending:'<span class="tag t-pend">대기</span>',approved:'<span class="tag t-ok">승인</span>',rejected:'<span class="tag t-danger">반려</span>'};
   return `
   <div class="msg msg-info">긴급 신청은 반드시 이 화면으로 접수하세요. 전화·구두 신청은 이력이 남지 않아 익월 수량 산정에 반영되지 않습니다.</div>
-  ${!ro()?`<div class="panel"><div class="panel-head"><div><h2>긴급 신청 접수</h2>
+  ${(!ro()&&!isDept(S.user))?`<div class="panel"><div class="panel-head"><div><h2>긴급 신청 접수</h2>
     <div class="sub">사유는 필수입니다. 사유 분포가 익월 기준 수량의 근거가 됩니다.</div></div></div>
     <div class="panel-body">
       <div class="form-row" style="margin-bottom:12px;">
@@ -722,8 +730,8 @@ function bindEmg(){
 /* ── 신청 수량 ── */
 function viewReq(){
   const all=lv(3);
-  const co=all?(S.viewCompany||S.user.company):S.user.company;
-  const coOpts=COMPANIES.map(c=>`<option value="${esc(c)}" ${c===co?"selected":""}>${esc(c)}</option>`).join("");
+  const co=all?(S.viewCompany||defaultVendor()):S.user.company;
+  const coOpts=VENDORS.map(c=>`<option value="${esc(c)}" ${c===co?"selected":""}>${esc(c)}</option>`).join("");
   const d30=Date.now()-30*864e5,d90=Date.now()-90*864e5;
   const rows=S.items.map(i=>{
     const c30=S.logs.filter(l=>l.type==="out"&&!l.void&&l.itemId===i.id&&l.company===co&&l.ts>=d30).reduce((s,l)=>s+l.qty,0);
@@ -759,7 +767,7 @@ function bindReq(){
   if(c) c.onchange=()=>{ S.viewCompany=c.value; render(); };
   const b=document.getElementById("rSave");
   if(b) b.onclick=async()=>{
-    const co=lv(3)?(S.viewCompany||S.user.company):S.user.company;
+    const co=lv(3)?(S.viewCompany||defaultVendor()):S.user.company;
     const map={};
     const get=id=>map[id]||(map[id]={id:S.reqMonth+"|"+co+"|"+id,month:S.reqMonth,company:co,itemId:id,
       itemName:(item(id)||{}).name||"",requestedQty:null,adjustedQty:null,comment:"",
@@ -771,7 +779,7 @@ function bindReq(){
   };
   const x=document.getElementById("csvReq");
   if(x) x.onclick=()=>{
-    const co=lv(3)?(S.viewCompany||S.user.company):S.user.company;
+    const co=lv(3)?(S.viewCompany||defaultVendor()):S.user.company;
     exportCSV(`신청수량_${S.reqMonth}_${co}`,["품목","현재고","신청수량","조정수량","코멘트"],
       S.items.map(i=>{ const r=S.requests.find(z=>z.id===S.reqMonth+"|"+co+"|"+i.id)||{};
         return [i.name,i.stock,r.requestedQty??"",r.adjustedQty??"",r.comment||""]; }));
@@ -789,7 +797,7 @@ function viewLogs(){
   if(f.from) rows=rows.filter(l=>l.ts>=new Date(f.from).getTime());
   if(f.to) rows=rows.filter(l=>l.ts<=new Date(f.to).getTime()+86399e3);
   const outQty=rows.filter(l=>l.type==="out"&&!l.void).reduce((s,l)=>s+l.qty,0);
-  const coOpts=`<option value="">전체 업체</option>`+COMPANIES.map(c=>`<option value="${esc(c)}" ${f.company===c?"selected":""}>${esc(c)}</option>`).join("");
+  const coOpts=`<option value="">전체 업체</option>`+VENDORS.map(c=>`<option value="${esc(c)}" ${f.company===c?"selected":""}>${esc(c)}</option>`).join("");
   const itOpts=`<option value="">전체 품목</option>`+S.items.map(i=>`<option value="${i.id}" ${f.item===i.id?"selected":""}>${esc(i.name)}</option>`).join("");
   const tyOpts=`<option value="">전체 구분</option>`+[["out","불출"],["in","입고"],["ret","반납"],["adj","실사조정"],["cancel","정정취소"]]
     .map(t=>`<option value="${t[0]}" ${f.type===t[0]?"selected":""}>${t[1]}</option>`).join("");
