@@ -428,19 +428,19 @@ function viewAuth(){
     (S.authTab==="login"?
       '<form id="fLogin">'+
         '<div class="field"><label>아이디</label>'+
-          '<input type="text" id="li_id" placeholder="예: 진영1234" autocomplete="username" required></div>'+
+          '<input type="text" id="li_id" placeholder="예: A540663" autocomplete="username" required></div>'+
         '<div class="field"><label>비밀번호</label>'+
           '<input type="password" id="li_pw" placeholder="가입 시 설정한 비밀번호" autocomplete="current-password" required></div>'+
         '<button class="btn btn-primary btn-block" type="submit">로그인</button>'+
-        '<div class="hint">아이디는 <b>업체명 + 사번</b> 형식입니다. 계정은 총관리자 승인 후 사용할 수 있습니다.</div>'+
+        '<div class="hint">아이디는 본인 <b>사번</b>입니다. 계정은 총관리자 승인 후 사용할 수 있습니다.</div>'+
       '</form>'
       :
       '<form id="fSignup">'+
         '<div class="field"><label>소속</label><select id="su_co" required>'+coOpts+'</select></div>'+
         '<div class="field"><label>이름</label><input type="text" id="su_nm" placeholder="예: 홍길동" required></div>'+
-        '<div class="field"><label>사번 (아이디로 사용됩니다)</label>'+
+        '<div class="field"><label>사번 (이것이 아이디가 됩니다)</label>'+
           '<input type="text" id="su_no" placeholder="예: A540663" required>'+
-          '<div class="hint">영문·숫자 조합. 아이디는 <b>소속 + 사번</b>으로 자동 생성됩니다.</div></div>'+
+          '<div class="hint">사번을 그대로 아이디로 사용합니다. 소속은 계정 정보와 불출 이력에 자동으로 기록됩니다.</div></div>'+
         '<div class="field"><label>비밀번호 설정</label>'+
           '<input type="password" id="su_pw" placeholder="4자 이상" required>'+
           '<div class="hint">영문·숫자 사용을 권장합니다. 한글은 입력기 전환이 필요해 현장에서 불편합니다.</div></div>'+
@@ -463,7 +463,7 @@ function viewPending(){
       '<p>총관리자가 권한을 부여하면 로그인할 수 있습니다.</p></div>'+
     '<div class="auth-body">'+
       '<div class="pendbox">'+
-        '<div class="pendrow"><span>아이디</span><b class="mono">'+esc(u.id)+'</b></div>'+
+        '<div class="pendrow"><span>아이디 (사번)</span><b class="mono">'+esc(u.id)+'</b></div>'+
         '<div class="pendrow"><span>이름</span><b>'+esc(u.name)+'</b></div>'+
         '<div class="pendrow"><span>소속</span><b>'+esc(u.company)+'</b></div>'+
         '<div class="pendrow"><span>신청 권한</span><b>'+lvChip(u.reqLevel||1)+' '+esc(LEVEL_NAME[u.reqLevel||1])+'</b></div>'+
@@ -533,9 +533,11 @@ function bindAuth(){
     if(pw.length<4){ S.authMsg={t:"e",m:"비밀번호는 4자 이상이어야 합니다."}; return render(); }
     if(pw!==pw2){ S.authMsg={t:"e",m:"비밀번호가 서로 다릅니다."}; return render(); }
     await pull();
-    var id=co+no;
-    if(S.users.filter(function(u){return u.id===id;}).length){
-      S.authMsg={t:"e",m:"이미 등록된 아이디입니다 ("+id+")."}; return render(); }
+    var id=no;
+    var dup=S.users.filter(function(u){return u.id===id;})[0];
+    if(dup){
+      S.authMsg={t:"e",m:"이미 등록된 사번입니다 ("+id+" · "+dup.company+" "+dup.name+"). 사번을 다시 확인하세요."};
+      return render(); }
     var first=S.users.length===0;
     var u={id:id,pass:pw,name:nm,company:co,level:first?4:1,reqLevel:first?4:rl,
       status:first?"approved":"pending",createdAt:Date.now(),lastLogin:0};
