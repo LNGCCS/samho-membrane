@@ -225,6 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
+const APP_VERSION = "v3.2";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-08-18 · 아이디를 사번만 사용하도록 변경";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -419,7 +421,9 @@ function viewAuth(){
   return '<div class="auth-wrap"><div class="auth-card">'+
     '<div class="auth-head"><div class="eyebrow">SHIPYARD · MATERIAL CONTROL</div>'+
     '<h1>부자재 관리 시스템</h1>'+
-    '<p>업체별 부자재 보유량과 불출 이력을 실측으로 관리합니다.</p></div>'+
+    '<p>업체별 부자재 보유량과 불출 이력을 실측으로 관리합니다.</p>'+
+    '<div style="margin-top:10px;font-family:IBM Plex Mono;font-size:10.5px;color:#7d93a6;">'+
+      APP_VERSION+' · '+APP_UPDATED+'</div></div>'+
     '<div class="auth-tabs">'+
       '<div class="auth-tab '+(S.authTab==="login"?"active":"")+'" data-at="login">로그인</div>'+
       '<div class="auth-tab '+(S.authTab==="signup"?"active":"")+'" data-at="signup">계정 생성</div></div>'+
@@ -592,7 +596,7 @@ function viewShell(){
       return '<div class="tabbtn '+(S.tab===t.k?"active":"")+'" data-tab="'+t.k+'">'+t.l+
         (t.badge?'<span class="dot">'+t.badge+'</span>':"")+'</div>'; }).join("")+'</div>'+
     '<main>'+viewTab()+'</main>'+
-    '<div class="footer-note">사내 부자재 관리 매개체 · 마지막 동기화 '+(S.lastSync?fmt(S.lastSync,true):"-")+'</div>';
+    '<div class="footer-note">부자재 관리 시스템 <b>'+APP_VERSION+'</b> · 마지막 동기화 '+(S.lastSync?fmt(S.lastSync,true):"-")+'</div>';
 }
 
 /* 업체 선택 바 — Lv.3 이상만 노출 */
