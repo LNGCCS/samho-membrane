@@ -198,6 +198,13 @@
     border-radius:var(--r);cursor:pointer;background:#fff;}
   .chk input{width:auto;}
   .chkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;}
+  .pendbox{border:1px solid var(--steel-line);border-radius:var(--r);overflow:hidden;}
+  .pendrow{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:11px 13px;border-bottom:1px solid #eef1f4;font-size:13px;}
+  .pendrow.last{border-bottom:none;background:#fdf9f0;}
+  .pendrow span{color:var(--text-mute);font-size:12px;font-weight:600;}
+  .pendrow b{font-weight:600;text-align:right;}
+  .mono{font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
   ::placeholder{color:#9aa9b6;}
 </style>
 </head>
@@ -247,7 +254,7 @@ let LAST_ERR = null;
 
 /* ── 상태 ─────────────────────────────────────────────────── */
 let S = {
-  user:null, tab:"dash", authTab:"login", authMsg:null,
+  user:null, tab:"dash", authTab:"login", authMsg:null, pendInfo:null,
   users:[], items:[], stocks:[], logs:[], requests:[], emergencies:[], stocktakes:[],
   co:null,                       /* 현재 보고 있는 업체 */
   reqMonth:nextMonth(),
@@ -405,6 +412,7 @@ function render(){
 
 /* ── 로그인 / 가입 신청 ───────────────────────────────────── */
 function viewAuth(){
+  if(S.pendInfo) return viewPending();
   var coOpts=COMPANIES.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join("");
   var lvOpts=[1,2,3].map(function(n){
     return '<option value="'+n+'">Lv.'+n+' · '+LEVEL_NAME[n]+'</option>'; }).join("");
@@ -445,7 +453,49 @@ function viewAuth(){
     '</div></div></div>';
 }
 
+/* ── 권한 부여 대기 상태 화면 ─────────────────────────────── */
+function viewPending(){
+  var u=S.pendInfo;
+  return '<div class="auth-wrap"><div class="auth-card">'+
+    '<div class="auth-head" style="border-bottom-color:#c98a12;">'+
+      '<div class="eyebrow" style="color:#e5b23a;">ACCOUNT STATUS</div>'+
+      '<h1>권한 부여 대기중</h1>'+
+      '<p>총관리자가 권한을 부여하면 로그인할 수 있습니다.</p></div>'+
+    '<div class="auth-body">'+
+      '<div class="pendbox">'+
+        '<div class="pendrow"><span>아이디</span><b class="mono">'+esc(u.id)+'</b></div>'+
+        '<div class="pendrow"><span>이름</span><b>'+esc(u.name)+'</b></div>'+
+        '<div class="pendrow"><span>소속</span><b>'+esc(u.company)+'</b></div>'+
+        '<div class="pendrow"><span>신청 권한</span><b>'+lvChip(u.reqLevel||1)+' '+esc(LEVEL_NAME[u.reqLevel||1])+'</b></div>'+
+        '<div class="pendrow"><span>신청일</span><b>'+fmt(u.createdAt,true)+'</b></div>'+
+        '<div class="pendrow last"><span>현재 상태</span>'+
+          '<b><span class="tag t-pend">Lv. 미부여</span> <span class="tag t-warn">권한 부여 대기중</span></b></div>'+
+      '</div>'+
+      '<div class="msg msg-warn" style="margin-top:16px;">권한이 부여되지 않아 아직 시스템을 사용할 수 없습니다. '+
+        '부서 총괄 공구장에게 승인을 요청하세요.</div>'+
+      '<button class="btn btn-primary btn-block" id="pdCheck">승인 여부 다시 확인</button>'+
+      '<button class="btn btn-ghost btn-block" id="pdBack" style="margin-top:8px;">로그인 화면으로</button>'+
+    '</div></div></div>';
+}
+
 function bindAuth(){
+  var back=document.getElementById("pdBack");
+  if(back) back.onclick=function(){ S.pendInfo=null; S.authMsg=null; render(); };
+  var recheck=document.getElementById("pdCheck");
+  if(recheck) recheck.onclick=async function(){
+    recheck.disabled=true; recheck.textContent="확인 중…";
+    await pull();
+    var u=S.users.filter(function(x){ return x.id===S.pendInfo.id; })[0];
+    if(!u){ S.pendInfo=null; S.authMsg={t:"e",m:"계정 신청이 거절되어 삭제되었습니다. 다시 신청해 주세요."}; return render(); }
+    if(u.status==="approved"){
+      S.pendInfo=null;
+      S.authMsg={t:"o",m:"권한이 부여되었습니다. Lv."+u.level+" · "+LEVEL_NAME[u.level]+" 로 로그인하세요."};
+      return render();
+    }
+    if(u.status==="suspended"){ S.pendInfo=null; S.authMsg={t:"e",m:"정지된 계정입니다."}; return render(); }
+    S.pendInfo=u; toast("아직 권한이 부여되지 않았습니다."); render();
+  };
+
   document.querySelectorAll("[data-at]").forEach(function(el){
     el.onclick=function(){ S.authTab=el.dataset.at; S.authMsg=null; render(); }; });
 
@@ -461,7 +511,7 @@ function bindAuth(){
     await pull();
     var u=S.users.filter(function(x){return x.id===id;})[0];
     if(!u){ S.authMsg={t:"e",m:"등록되지 않은 아이디입니다."}; return render(); }
-    if(u.status==="pending"){ S.authMsg={t:"w",m:"승인 대기중입니다. 총관리자 승인 후 사용할 수 있습니다."}; return render(); }
+    if(u.status==="pending"){ S.pendInfo=u; S.authMsg=null; return render(); }
     if(u.status==="suspended"){ S.authMsg={t:"e",m:"정지된 계정입니다."}; return render(); }
     if(u.pass!==pw){ S.authMsg={t:"e",m:"비밀번호가 일치하지 않습니다."}; return render(); }
     u.lastLogin=Date.now();
@@ -493,10 +543,12 @@ function bindAuth(){
     if(first && S.items.length===0){
       await push(function(){ return db.from("items").insert(seedItems().map(M.itemOut)); });
     }
-    S.authTab="login";
-    S.authMsg = first
-      ? {t:"o",m:"최초 가입자이므로 총관리자(Lv.4)로 자동 승인되었습니다. 아이디: "+id}
-      : {t:"o",m:"계정 생성 신청 완료. 아이디: "+id+" · Lv."+rl+" 신청 · 총관리자 승인 후 로그인할 수 있습니다."};
+    if(first){
+      S.authTab="login";
+      S.authMsg={t:"o",m:"최초 가입자이므로 총관리자(Lv.4)로 자동 승인되었습니다. 아이디: "+id};
+    } else {
+      S.pendInfo=u; S.authMsg=null;
+    }
     render();
   };
 }
