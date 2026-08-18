@@ -24,7 +24,7 @@
 
   .auth-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:20px;
     background:linear-gradient(180deg,var(--navy) 0%,var(--navy) 42%,var(--bg) 42%);}
-  .auth-card{width:100%;max-width:430px;background:var(--panel);border:1px solid var(--steel-line);
+  .auth-card{width:100%;max-width:440px;background:var(--panel);border:1px solid var(--steel-line);
     border-radius:var(--r);box-shadow:0 14px 44px rgba(13,36,54,.28);overflow:hidden;}
   .auth-head{background:var(--navy);color:#fff;padding:22px 24px 18px;border-bottom:4px solid var(--accent);}
   .auth-head .eyebrow{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.14em;color:var(--accent);margin-bottom:6px;}
@@ -51,6 +51,7 @@
   .btn-primary{background:var(--accent);color:#fff;}
   .btn-primary:hover:not(:disabled){background:var(--accent-dark);}
   .btn-navy{background:var(--navy);color:#fff;}
+  .btn-navy:hover:not(:disabled){background:var(--navy-2);}
   .btn-block{width:100%;}
   .btn-ghost{background:#fff;border-color:var(--steel-line);color:var(--text);}
   .btn-ghost:hover:not(:disabled){background:var(--panel-alt);}
@@ -73,10 +74,9 @@
   .who{display:flex;align-items:center;gap:9px;flex:none;}
   .lvbadge{font-family:'IBM Plex Mono';font-size:10.5px;font-weight:700;color:#0d2436;background:var(--accent);
     padding:3px 6px;border-radius:2px;}
-  .lvbadge.ro{background:#9fb4c4;}
   .who .u{font-size:12px;color:#dbe6ee;}
   .who .u b{color:#fff;}
-  @media(max-width:860px){.who .u{display:none;}.brand .name span{display:none;}}
+  @media(max-width:900px){.who .u{display:none;}.brand .name span{display:none;}}
 
   .tabs{display:flex;gap:2px;background:var(--navy-2);padding:0 12px;overflow-x:auto;
     position:sticky;top:56px;z-index:19;scrollbar-width:none;}
@@ -116,6 +116,9 @@
   .t-danger{background:#fbe9e6;color:var(--danger);}
   .t-pend{background:#fdf3de;color:var(--warn);}
   .t-grey{background:#eceff2;color:#5f7080;}
+  .lvchip{display:inline-block;padding:2px 8px;border-radius:2px;font-family:'IBM Plex Mono';
+    font-size:11px;font-weight:700;color:#fff;}
+  .lv1{background:#7b8b99;} .lv2{background:#2b6cb0;} .lv3{background:#c98a12;} .lv4{background:#0d2436;}
 
   .gauge{width:100%;min-width:80px;height:8px;background:#e3e8ec;border-radius:4px;overflow:hidden;}
   .gauge-fill{height:100%;background:var(--ok);}
@@ -138,9 +141,15 @@
     padding:1px 6px;border-radius:2px;font-size:11.5px;}
   .footer-note{font-size:11px;color:var(--text-mute);text-align:center;padding:16px 0 34px;}
 
+  .cobar{display:flex;align-items:center;gap:10px;background:var(--navy);color:#fff;
+    padding:10px 14px;border-radius:var(--r);margin-bottom:16px;flex-wrap:wrap;}
+  .cobar label{font-size:12px;color:#9fb4c4;font-weight:600;}
+  .cobar select{width:auto;min-width:180px;padding:7px 10px;font-size:13.5px;font-weight:600;}
+  .cobar .now{font-family:'IBM Plex Mono';font-size:12px;color:#9fb4c4;}
+
   .picker{border:1px solid var(--steel-line);border-radius:var(--r);overflow:hidden;}
   .picker-search{padding:9px;border-bottom:1px solid var(--steel-line);background:var(--panel-alt);}
-  .picker-list{max-height:230px;overflow-y:auto;}
+  .picker-list{max-height:240px;overflow-y:auto;}
   .pitem{padding:10px 12px;border-bottom:1px solid #eef1f4;cursor:pointer;display:flex;
     align-items:center;justify-content:space-between;gap:10px;}
   .pitem:hover{background:#fbfcfd;}
@@ -173,8 +182,6 @@
   .segbtn{padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:var(--text-mute);border-right:1px solid var(--steel-line);}
   .segbtn:last-child{border-right:none;}
   .segbtn.on{background:var(--navy);color:#fff;}
-  .readonly-bar{background:#eceff2;border:1px solid var(--steel-line);border-left:4px solid #5f7080;
-    padding:9px 12px;font-size:12.5px;color:#485663;border-radius:var(--r);margin-bottom:14px;}
 
   .syncdot{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#9fb4c4;font-family:'IBM Plex Mono';}
   .syncdot i{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;}
@@ -187,6 +194,10 @@
   .setup h1{font-size:19px;margin:0 0 12px;}
   .setup code{background:#f3f6f8;padding:2px 6px;border-radius:2px;font-family:'IBM Plex Mono';font-size:13px;}
   .setup pre{background:#0d2436;color:#e8edf1;padding:14px;border-radius:3px;overflow-x:auto;font-size:12.5px;font-family:'IBM Plex Mono';}
+  .chk{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--steel-line);
+    border-radius:var(--r);cursor:pointer;background:#fff;}
+  .chk input{width:auto;}
+  .chkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;}
   ::placeholder{color:#9aa9b6;}
 </style>
 </head>
@@ -195,7 +206,7 @@
 <script>
 /* ══════════════════════════════════════════════════════════════
    ▼▼▼  여기 두 줄만 본인 것으로 바꾸세요  ▼▼▼
-   Supabase → Project Settings → API 에서 복사합니다.
+   Supabase → Project Settings → API
    ══════════════════════════════════════════════════════════════ */
 const SUPABASE_URL      = "https://mmmyzlplgemewjhapwwk.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1tbXl6bHBsZ2VtZXdqaGFwd3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3ODQwMjAsImV4cCI6MjEwMjM2MDAyMH0.tSloDZIat5jcp2h_BaqYye4zWDcoI-X1og4EnsGwyRA";
@@ -206,955 +217,1233 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 (function(){
 "use strict";
 
-const COMPANIES = ["멤브레인공사부","진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
-/* 멤브레인공사부는 관리 조직이며 불출 주체가 아님. 업체 통계에서 분리한다. */
+/* ── 기준 정보 ────────────────────────────────────────────── */
 const DEPT = "멤브레인공사부";
-const VENDORS = COMPANIES.filter(c=>c!==DEPT);
-function isDept(u){ return u && u.company===DEPT; }
-/* 부서 소속 사용자가 업체별 화면을 볼 때 기본으로 보여줄 업체 */
-function defaultVendor(){ return isDept(S.user) ? VENDORS[0] : S.user.company; }
-const LEVEL_NAME = {1:"부자재 수령자",2:"업체 공구장",3:"부서 총괄 공구장",4:"총관리자"};
+const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
+const COMPANIES = [DEPT].concat(VENDORS);
+const LEVEL_NAME = {1:"부자재 수령자",2:"업체 공구장",3:"관리자",4:"총관리자"};
+const LEVEL_DESC = {
+  1:"등록된 품목을 불출(차감)만 할 수 있습니다.",
+  2:"소속 업체의 입고·반납, 익월 신청, 긴급 신청까지 가능합니다.",
+  3:"전 업체 관리, 신청 수량 조정, 데이터 내보내기가 가능합니다.",
+  4:"품목 마스터 관리와 권한 부여 권한을 가집니다."
+};
 
-/* 붙여넣기 과정에서 섞이기 쉬운 공백·줄바꿈·따옴표를 자동으로 제거 */
 const CFG_URL = String(SUPABASE_URL).replace(/[\s"'`]/g,"").replace(/\/+$/,"");
 const CFG_KEY = String(SUPABASE_ANON_KEY).replace(/[\s"'`]/g,"");
 
-function setupScreen(title, bodyHtml){
-  document.getElementById("app").innerHTML=
-    `<div class="setup"><h1>${title}</h1>${bodyHtml}</div>`;
+function setupScreen(title, body){
+  document.getElementById("app").innerHTML = '<div class="setup"><h1>'+title+'</h1>'+body+'</div>';
 }
-
 if(CFG_URL.indexOf("http")!==0 || CFG_KEY.length<20){
-  setupScreen("서버 연결 설정이 필요합니다",`
-    <p style="line-height:1.7;font-size:13.5px;">이 파일 상단의 두 줄을 본인 Supabase 프로젝트 값으로 바꾼 뒤 다시 업로드하세요.</p>
-    <pre>const SUPABASE_URL      = "https://xxxxxxxx.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOi... (또는 sb_publishable_...)";</pre>
-    <p style="line-height:1.7;font-size:13.5px;">값은 Supabase 대시보드의 <code>Project Settings → API</code>에 있는
-    <b>Project URL</b>과 <b>anon public</b>(또는 <b>publishable</b>) 키입니다.
-    <code>service_role</code> / <code>secret</code> 키는 절대 사용하지 마세요.</p>
-    <p style="line-height:1.7;font-size:13px;color:#5f7080;">현재 인식된 값 —
-    URL: <code>${CFG_URL?CFG_URL.slice(0,40):"(비어 있음)"}</code> ·
-    KEY 길이: <code>${CFG_KEY.length}</code>자</p>`);
+  setupScreen("서버 연결 설정이 필요합니다",
+    '<p style="line-height:1.7;font-size:13.5px;">파일 상단 두 줄을 Supabase 값으로 바꾼 뒤 다시 업로드하세요.</p>'+
+    '<pre>const SUPABASE_URL      = "https://xxxx.supabase.co";\nconst SUPABASE_ANON_KEY = "eyJhbGciOi...";</pre>'+
+    '<p style="font-size:13px;color:#5f7080;">현재 인식 — URL <code>'+(CFG_URL||"(비어 있음)")+'</code> · KEY <code>'+CFG_KEY.length+'</code>자</p>');
   return;
 }
-
 const db = window.supabase.createClient(CFG_URL, CFG_KEY);
 let LAST_ERR = null;
 
+/* ── 상태 ─────────────────────────────────────────────────── */
 let S = {
   user:null, tab:"dash", authTab:"login", authMsg:null,
-  users:[], items:[], logs:[], requests:[], emergencies:[], stocktakes:[],
-  reqMonth:nextMonth(), viewCompany:null,
-  wMode:"out", wItem:null, wQty:0, wSearch:"", wMsg:null, wTeam:"", wCompany:null,
-  logFilter:{company:"",item:"",team:"",type:"",from:"",to:""},
-  sync:"ok", lastSync:0
+  users:[], items:[], stocks:[], logs:[], requests:[], emergencies:[], stocktakes:[],
+  co:null,                       /* 현재 보고 있는 업체 */
+  reqMonth:nextMonth(),
+  wMode:"out", wItem:null, wQty:0, wSearch:"", wMsg:null, wTeam:"",
+  logFilter:{item:"",team:"",type:"",from:"",to:""},
+  sync:"ok", lastSync:0, msg:{}
 };
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
-function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function nf(n){ return Number(n||0).toLocaleString("ko-KR"); }
-function nextMonth(){ const d=new Date(); d.setMonth(d.getMonth()+1);
+function nextMonth(){ var d=new Date(); d.setMonth(d.getMonth()+1);
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
-function nowLocal(){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+function nowLocal(){ var d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
   return d.toISOString().slice(0,16); }
-function fmt(ts,short){ const d=new Date(Number(ts));
+function fmt(ts,short){ var d=new Date(Number(ts));
   return short?d.toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
               :d.toLocaleString("ko-KR"); }
-function toast(m,err){ const t=document.createElement("div");
+function toast(m,err){ var t=document.createElement("div");
   t.className="toast"+(err?" err":""); t.textContent=m; document.body.appendChild(t);
-  setTimeout(()=>t.remove(),3200); }
+  setTimeout(function(){ t.remove(); },3200); }
 function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k);
   if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){ return null; } }
 
-const M = {
-  userIn:r=>({id:r.id,pass:r.pass,name:r.name,company:r.company,level:r.level,readOnly:r.read_only,
-    pwChanged:r.pw_changed,status:r.status,createdAt:Number(r.created_at),lastLogin:Number(r.last_login)}),
-  userOut:u=>({id:u.id,pass:u.pass,name:u.name,company:u.company,level:u.level,read_only:!!u.readOnly,
-    pw_changed:!!u.pwChanged,status:u.status,created_at:u.createdAt||0,last_login:u.lastLogin||0}),
-  itemIn:r=>({id:r.id,name:r.name,unit:r.unit,stock:r.stock,minStock:r.min_stock,step:r.step}),
-  itemOut:i=>({id:i.id,name:i.name,unit:i.unit,stock:i.stock,min_stock:i.minStock,step:i.step||1}),
-  logIn:r=>({id:r.id,ts:Number(r.ts),type:r.type,company:r.company,itemId:r.item_id,itemName:r.item_name,
-    unit:r.unit,qty:r.qty,taker:r.taker,team:r.team,by:r.by_id,byName:r.by_name,void:r.void,
-    voidReason:r.void_reason,voidBy:r.void_by,voidAt:r.void_at,refId:r.ref_id}),
-  logOut:l=>({id:l.id,ts:l.ts,type:l.type,company:l.company,item_id:l.itemId,item_name:l.itemName,
-    unit:l.unit,qty:l.qty,taker:l.taker,team:l.team,by_id:l.by,by_name:l.byName,void:!!l.void,ref_id:l.refId||null}),
-  reqIn:r=>({id:r.id,month:r.month,company:r.company,itemId:r.item_id,itemName:r.item_name,
-    requestedQty:r.requested_qty,adjustedQty:r.adjusted_qty,comment:r.comment}),
-  reqOut:r=>({id:r.id,month:r.month,company:r.company,item_id:r.itemId,item_name:r.itemName,
+/* ── 권한 ─────────────────────────────────────────────────── */
+function lv(n){ return S.user && S.user.level>=n; }
+function isDept(){ return S.user && S.user.company===DEPT; }
+/* Lv.3 이상은 모든 업체 조회/조작, Lv.1~2는 자기 업체만 */
+function canPickCompany(){ return lv(3); }
+function myCompany(){ return isDept()? VENDORS[0] : S.user.company; }
+function curCo(){ return canPickCompany() ? (S.co||myCompany()) : S.user.company; }
+function canExport(){ return lv(3); }          /* 데이터 내보내기: Lv.3 이상 */
+function canAddStock(){ return lv(2); }        /* 재고 증가(입고/반납): Lv.2 이상 */
+function canRequest(){ return lv(2); }         /* 익월 신청·긴급 신청: Lv.2 이상 */
+function canManageItems(){ return lv(4); }     /* 품목 마스터: Lv.4 전용 */
+function canGrant(){ return lv(4); }           /* 권한 부여: Lv.4 전용 */
+
+/* ── DB 매핑 ──────────────────────────────────────────────── */
+var M = {
+  userIn:function(r){ return {id:r.id,pass:r.pass,name:r.name,company:r.company,level:r.level,
+    reqLevel:r.req_level||1,status:r.status,createdAt:Number(r.created_at),lastLogin:Number(r.last_login)}; },
+  userOut:function(u){ return {id:u.id,pass:u.pass,name:u.name,company:u.company,level:u.level,
+    req_level:u.reqLevel||1,read_only:false,pw_changed:true,status:u.status,
+    created_at:u.createdAt||0,last_login:u.lastLogin||0}; },
+  itemIn:function(r){ return {id:r.id,name:r.name,unit:r.unit,step:r.step||1}; },
+  itemOut:function(i){ return {id:i.id,name:i.name,unit:i.unit,stock:0,min_stock:0,step:i.step||1}; },
+  stockIn:function(r){ return {id:r.id,company:r.company,itemId:r.item_id,qty:r.stock,minQty:r.min_stock}; },
+  stockOut:function(s){ return {id:s.id,company:s.company,item_id:s.itemId,stock:s.qty,min_stock:s.minQty}; },
+  logIn:function(r){ return {id:r.id,ts:Number(r.ts),type:r.type,company:r.company,itemId:r.item_id,
+    itemName:r.item_name,unit:r.unit,qty:r.qty,taker:r.taker,team:r.team,by:r.by_id,byName:r.by_name,
+    void:r.void,voidReason:r.void_reason,refId:r.ref_id}; },
+  logOut:function(l){ return {id:l.id,ts:l.ts,type:l.type,company:l.company,item_id:l.itemId,
+    item_name:l.itemName,unit:l.unit,qty:l.qty,taker:l.taker,team:l.team,by_id:l.by,by_name:l.byName,
+    void:!!l.void,ref_id:l.refId||null}; },
+  reqIn:function(r){ return {id:r.id,month:r.month,company:r.company,itemId:r.item_id,itemName:r.item_name,
+    requestedQty:r.requested_qty,adjustedQty:r.adjusted_qty,comment:r.comment}; },
+  reqOut:function(r){ return {id:r.id,month:r.month,company:r.company,item_id:r.itemId,item_name:r.itemName,
     requested_qty:r.requestedQty,adjusted_qty:r.adjustedQty,comment:r.comment,
-    updated_by:r.updatedBy||"",updated_at:r.updatedAt||Date.now()}),
-  emgIn:r=>({id:r.id,ts:Number(r.ts),company:r.company,itemId:r.item_id,itemName:r.item_name,qty:r.qty,
-    category:r.category,note:r.note,team:r.team,by:r.by_id,byName:r.by_name,status:r.status,handledBy:r.handled_by}),
-  emgOut:e=>({id:e.id,ts:e.ts,company:e.company,item_id:e.itemId,item_name:e.itemName,qty:e.qty,
-    category:e.category,note:e.note,team:e.team,by_id:e.by,by_name:e.byName,status:e.status,handled_by:e.handledBy||""}),
-  stkIn:r=>({id:r.id,ts:Number(r.ts),by:r.by_id,byName:r.by_name,note:r.note,lines:r.lines||[],total:r.total}),
-  stkOut:s=>({id:s.id,ts:s.ts,by_id:s.by,by_name:s.byName,note:s.note,lines:s.lines,total:s.total})
+    updated_by:r.updatedBy||"",updated_at:r.updatedAt||Date.now()}; },
+  emgIn:function(r){ return {id:r.id,ts:Number(r.ts),company:r.company,itemId:r.item_id,itemName:r.item_name,
+    qty:r.qty,category:r.category,note:r.note,team:r.team,by:r.by_id,byName:r.by_name,
+    status:r.status,handledBy:r.handled_by}; },
+  emgOut:function(e){ return {id:e.id,ts:e.ts,company:e.company,item_id:e.itemId,item_name:e.itemName,
+    qty:e.qty,category:e.category,note:e.note,team:e.team,by_id:e.by,by_name:e.byName,
+    status:e.status,handled_by:e.handledBy||""}; },
+  stkIn:function(r){ return {id:r.id,ts:Number(r.ts),company:r.company,by:r.by_id,byName:r.by_name,
+    note:r.note,lines:r.lines||[],total:r.total}; },
+  stkOut:function(s){ return {id:s.id,ts:s.ts,company:s.company,by_id:s.by,by_name:s.byName,
+    note:s.note,lines:s.lines,total:s.total}; }
 };
 
-function setSync(v){ S.sync=v; const el=document.getElementById("syncDot");
+function setSync(v){ S.sync=v; var el=document.getElementById("syncDot");
   if(el) el.className="syncdot"+(v==="busy"?" busy":v==="err"?" err":""); }
 
 async function pull(){
   setSync("busy");
   try{
-    const [u,i,l,r,e,s]=await Promise.all([
+    var res = await Promise.all([
       db.from("users").select("*"),
       db.from("items").select("*").order("name"),
+      db.from("stocks").select("*"),
       db.from("logs").select("*").order("ts",{ascending:false}).limit(5000),
       db.from("requests").select("*"),
       db.from("emergencies").select("*").order("ts",{ascending:false}),
       db.from("stocktakes").select("*").order("ts",{ascending:false})
     ]);
-    const bad=[u,i,l,r,e,s].find(x=>x.error);
-    if(bad) throw bad.error;
-    S.users=(u.data||[]).map(M.userIn);
-    S.items=(i.data||[]).map(M.itemIn);
-    S.logs=(l.data||[]).map(M.logIn);
-    S.requests=(r.data||[]).map(M.reqIn);
-    S.emergencies=(e.data||[]).map(M.emgIn);
-    S.stocktakes=(s.data||[]).map(M.stkIn);
-    if(S.user){ const me=S.users.find(x=>x.id===S.user.id); if(me) S.user=me; }
+    for(var i=0;i<res.length;i++){ if(res[i].error) throw res[i].error; }
+    S.users=(res[0].data||[]).map(M.userIn);
+    S.items=(res[1].data||[]).map(M.itemIn);
+    S.stocks=(res[2].data||[]).map(M.stockIn);
+    S.logs=(res[3].data||[]).map(M.logIn);
+    S.requests=(res[4].data||[]).map(M.reqIn);
+    S.emergencies=(res[5].data||[]).map(M.emgIn);
+    S.stocktakes=(res[6].data||[]).map(M.stkIn);
+    if(S.user){ var me=S.users.filter(function(x){return x.id===S.user.id;})[0]; if(me) S.user=me; }
     S.lastSync=Date.now(); setSync("ok"); LAST_ERR=null; return true;
   }catch(err){
     console.error(err); setSync("err"); LAST_ERR=err;
-    toast("서버 연결에 실패했습니다. 인터넷 상태를 확인하세요.",true);
+    toast("서버 연결에 실패했습니다.",true);
     return false;
   }
 }
 
 async function push(fn,okMsg){
   setSync("busy");
-  try{ const res=await fn(); if(res&&res.error) throw res.error;
+  try{ var res=await fn(); if(res&&res.error) throw res.error;
     setSync("ok"); if(okMsg) toast(okMsg); return res||{ok:true}; }
   catch(err){ console.error(err); setSync("err");
     toast("저장 실패: "+(err.message||"서버 오류"),true); return null; }
 }
 
+/* ── 조회 헬퍼 ────────────────────────────────────────────── */
+function itemById(id){ return S.items.filter(function(i){return i.id===id;})[0]; }
+function stockKey(co,itemId){ return co+"|"+itemId; }
+function stockOf(co,itemId){ return S.stocks.filter(function(s){return s.id===stockKey(co,itemId);})[0]; }
+/* 해당 업체가 실제로 취급 등록한 품목만 */
+function itemsOf(co){
+  return S.stocks.filter(function(s){return s.company===co;})
+    .map(function(s){ var it=itemById(s.itemId); return it?{item:it,stock:s}:null; })
+    .filter(Boolean)
+    .sort(function(a,b){ return a.item.name.localeCompare(b.item.name,"ko"); });
+}
+function lowOf(co){ return itemsOf(co).filter(function(x){
+  return x.stock.minQty>0 && x.stock.qty<=x.stock.minQty; }); }
+
+/* ── 기본 품목 30종 ───────────────────────────────────────── */
 function seedItems(){
-  const raw=[["CO2 용접와이어 1.2mm","kg",2400,600,10],["CO2 용접와이어 1.6mm","kg",1800,400,10],
-    ["저수소계 용접봉 4.0mm","kg",1200,300,10],["스테인리스 용접봉 3.2mm","kg",300,80,5],
-    ["연마디스크 4인치","EA",4200,1000,50],["연마디스크 7인치","EA",2600,600,50],
-    ["절단석 4인치","EA",3800,900,50],["절단석 7인치","EA",1500,400,50],
-    ["플랩디스크 4인치","EA",2200,500,50],["와이어브러시 컵형","EA",380,100,10],
-    ["샌딩페이퍼 #80","EA",1600,400,50],["샌딩페이퍼 #120","EA",1400,300,50],
-    ["가우징봉 8mm","EA",900,200,25],["용접용 팁 1.2mm","EA",1100,250,25],
-    ["용접용 노즐","EA",600,150,10],["방진마스크 1급","EA",1800,400,25],
-    ["방진필터 교체용","EA",900,200,25],["용접장갑","켤레",700,180,10],
-    ["코팅장갑","켤레",2400,600,50],["보호안경","EA",520,120,10],
-    ["용접면 보호유리","EA",640,150,25],["귀마개","EA",1100,250,50],
-    ["방청테이프 50mm","롤",280,70,5],["마스킹테이프 24mm","롤",420,100,10],
-    ["실링테이프","롤",180,50,5],["케이블타이 200mm","EA",3200,800,100],
-    ["에어호스 커플러","EA",130,40,5],["산소호스 클램프","EA",240,60,10],
-    ["마킹펜 (백색)","EA",680,150,10],["웨스 (와이핑천)","kg",340,90,5]];
-  return raw.map(r=>({id:uid(),name:r[0],unit:r[1],stock:r[2],minStock:r[3],step:r[4]}));
+  var raw=[["CO2 용접와이어 1.2mm","kg",10],["CO2 용접와이어 1.6mm","kg",10],
+    ["저수소계 용접봉 4.0mm","kg",10],["스테인리스 용접봉 3.2mm","kg",5],
+    ["연마디스크 4인치","EA",50],["연마디스크 7인치","EA",50],
+    ["절단석 4인치","EA",50],["절단석 7인치","EA",50],
+    ["플랩디스크 4인치","EA",50],["와이어브러시 컵형","EA",10],
+    ["샌딩페이퍼 #80","EA",50],["샌딩페이퍼 #120","EA",50],
+    ["가우징봉 8mm","EA",25],["용접용 팁 1.2mm","EA",25],
+    ["용접용 노즐","EA",10],["방진마스크 1급","EA",25],
+    ["방진필터 교체용","EA",25],["용접장갑","켤레",10],
+    ["코팅장갑","켤레",50],["보호안경","EA",10],
+    ["용접면 보호유리","EA",25],["귀마개","EA",50],
+    ["방청테이프 50mm","롤",5],["마스킹테이프 24mm","롤",10],
+    ["실링테이프","롤",5],["케이블타이 200mm","EA",100],
+    ["에어호스 커플러","EA",5],["산소호스 클램프","EA",10],
+    ["마킹펜 (백색)","EA",10],["웨스 (와이핑천)","kg",5]];
+  return raw.map(function(r){ return {id:uid(),name:r[0],unit:r[1],step:r[2]}; });
 }
 
-function item(id){ return S.items.find(i=>i.id===id); }
-function lv(n){ return S.user && S.user.level>=n; }
-function ro(){ return S.user && S.user.readOnly; }
-function canWrite(n){ return lv(n) && !ro(); }
-function roleLabel(u){ return u.readOnly?"관리감독자 (열람 전용)":LEVEL_NAME[u.level]; }
-function scopeCompany(){ return lv(3)?null:S.user.company; }
-
+/* ══════════════════════════════════════════════════════════
+   렌더 루트
+   ══════════════════════════════════════════════════════════ */
 function render(){
-  const app=document.getElementById("app");
+  var app=document.getElementById("app");
   if(!S.user){ app.innerHTML=viewAuth(); bindAuth(); return; }
   app.innerHTML=viewShell(); bindShell();
 }
 
-/* ── 인증 ── */
+/* ── 로그인 / 가입 신청 ───────────────────────────────────── */
 function viewAuth(){
-  const opts=COMPANIES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
-  return `<div class="auth-wrap"><div class="auth-card">
-    <div class="auth-head"><div class="eyebrow">SHIPYARD · MATERIAL CONTROL</div>
-      <h1>부자재 관리 시스템</h1>
-      <p>불출 이력을 실측으로 남겨 신청 수량의 근거를 만듭니다.</p></div>
-    <div class="auth-tabs">
-      <div class="auth-tab ${S.authTab==='login'?'active':''}" data-at="login">로그인</div>
-      <div class="auth-tab ${S.authTab==='signup'?'active':''}" data-at="signup">가입 신청</div></div>
-    <div class="auth-body">
-      ${S.authMsg?`<div class="msg ${S.authMsg.t==='e'?'msg-error':S.authMsg.t==='w'?'msg-warn':'msg-ok'}">${esc(S.authMsg.m)}</div>`:""}
-      ${S.authTab==='login'?`
-        <form id="fLogin">
-          <div class="field"><label>아이디 (업체명 + 사번)</label>
-            <input type="text" id="li_id" placeholder="예: 진영1234" required></div>
-          <div class="field"><label>비밀번호</label>
-            <input type="password" id="li_pw" placeholder="이름 또는 설정한 비밀번호" required></div>
-          <button class="btn btn-primary btn-block" type="submit">로그인</button>
-          <div class="hint">최초 비밀번호는 본인 <b>이름</b>입니다. 업체 공구장 이상은 로그인 후 변경하세요.</div>
-        </form>`:`
-        <form id="fSignup">
-          <div class="field"><label>소속 업체</label><select id="su_co" required>${opts}</select></div>
-          <div class="field"><label>사번</label><input type="text" id="su_no" placeholder="예: 1234" required></div>
-          <div class="field"><label>이름</label><input type="text" id="su_nm" placeholder="예: 홍길동" required></div>
-          <button class="btn btn-primary btn-block" type="submit">가입 신청</button>
-          <div class="hint">아이디는 <b>업체명+사번</b>으로 자동 생성됩니다. 승인 후 로그인할 수 있습니다.</div>
-        </form>`}
-    </div></div></div>`;
+  var coOpts=COMPANIES.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join("");
+  var lvOpts=[1,2,3].map(function(n){
+    return '<option value="'+n+'">Lv.'+n+' · '+LEVEL_NAME[n]+'</option>'; }).join("");
+  return '<div class="auth-wrap"><div class="auth-card">'+
+    '<div class="auth-head"><div class="eyebrow">SHIPYARD · MATERIAL CONTROL</div>'+
+    '<h1>부자재 관리 시스템</h1>'+
+    '<p>업체별 부자재 보유량과 불출 이력을 실측으로 관리합니다.</p></div>'+
+    '<div class="auth-tabs">'+
+      '<div class="auth-tab '+(S.authTab==="login"?"active":"")+'" data-at="login">로그인</div>'+
+      '<div class="auth-tab '+(S.authTab==="signup"?"active":"")+'" data-at="signup">계정 생성</div></div>'+
+    '<div class="auth-body">'+
+    (S.authMsg?'<div class="msg '+(S.authMsg.t==="e"?"msg-error":S.authMsg.t==="w"?"msg-warn":"msg-ok")+'">'+esc(S.authMsg.m)+'</div>':"")+
+    (S.authTab==="login"?
+      '<form id="fLogin">'+
+        '<div class="field"><label>아이디</label>'+
+          '<input type="text" id="li_id" placeholder="예: 진영1234" autocomplete="username" required></div>'+
+        '<div class="field"><label>비밀번호</label>'+
+          '<input type="password" id="li_pw" placeholder="가입 시 설정한 비밀번호" autocomplete="current-password" required></div>'+
+        '<button class="btn btn-primary btn-block" type="submit">로그인</button>'+
+        '<div class="hint">아이디는 <b>업체명 + 사번</b> 형식입니다. 계정은 총관리자 승인 후 사용할 수 있습니다.</div>'+
+      '</form>'
+      :
+      '<form id="fSignup">'+
+        '<div class="field"><label>소속</label><select id="su_co" required>'+coOpts+'</select></div>'+
+        '<div class="field"><label>이름</label><input type="text" id="su_nm" placeholder="예: 홍길동" required></div>'+
+        '<div class="field"><label>사번 (아이디로 사용됩니다)</label>'+
+          '<input type="text" id="su_no" placeholder="예: A540663" required>'+
+          '<div class="hint">영문·숫자 조합. 아이디는 <b>소속 + 사번</b>으로 자동 생성됩니다.</div></div>'+
+        '<div class="field"><label>비밀번호 설정</label>'+
+          '<input type="password" id="su_pw" placeholder="4자 이상" required>'+
+          '<div class="hint">영문·숫자 사용을 권장합니다. 한글은 입력기 전환이 필요해 현장에서 불편합니다.</div></div>'+
+        '<div class="field"><label>비밀번호 확인</label><input type="password" id="su_pw2" required></div>'+
+        '<div class="field"><label>희망 권한 신청</label><select id="su_lv">'+lvOpts+'</select>'+
+          '<div class="hint" id="lvHint">'+LEVEL_DESC[1]+'</div></div>'+
+        '<button class="btn btn-primary btn-block" type="submit">계정 생성 신청</button>'+
+        '<div class="hint">신청한 권한은 총관리자 검토 후 조정될 수 있습니다.</div>'+
+      '</form>')+
+    '</div></div></div>';
 }
 
 function bindAuth(){
-  document.querySelectorAll("[data-at]").forEach(el=>el.onclick=()=>{ S.authTab=el.dataset.at; S.authMsg=null; render(); });
-  const f=document.getElementById("fLogin");
-  if(f) f.onsubmit=async e=>{
+  document.querySelectorAll("[data-at]").forEach(function(el){
+    el.onclick=function(){ S.authTab=el.dataset.at; S.authMsg=null; render(); }; });
+
+  var lvSel=document.getElementById("su_lv");
+  if(lvSel) lvSel.onchange=function(){
+    document.getElementById("lvHint").textContent=LEVEL_DESC[+lvSel.value]; };
+
+  var f=document.getElementById("fLogin");
+  if(f) f.onsubmit=async function(e){
     e.preventDefault();
-    const id=document.getElementById("li_id").value.trim();
-    const pw=document.getElementById("li_pw").value;
+    var id=document.getElementById("li_id").value.trim();
+    var pw=document.getElementById("li_pw").value;
     await pull();
-    const u=S.users.find(x=>x.id===id);
+    var u=S.users.filter(function(x){return x.id===id;})[0];
     if(!u){ S.authMsg={t:"e",m:"등록되지 않은 아이디입니다."}; return render(); }
-    if(u.status==="pending"){ S.authMsg={t:"w",m:"승인 대기중입니다. 업체 공구장 또는 총괄 공구장의 승인을 기다려 주세요."}; return render(); }
+    if(u.status==="pending"){ S.authMsg={t:"w",m:"승인 대기중입니다. 총관리자 승인 후 사용할 수 있습니다."}; return render(); }
     if(u.status==="suspended"){ S.authMsg={t:"e",m:"정지된 계정입니다."}; return render(); }
     if(u.pass!==pw){ S.authMsg={t:"e",m:"비밀번호가 일치하지 않습니다."}; return render(); }
     u.lastLogin=Date.now();
-    await push(()=>db.from("users").upsert(M.userOut(u)));
-    S.user=u; S.authMsg=null; S.tab="dash"; ls("bz_session",u.id);
+    await push(function(){ return db.from("users").upsert(M.userOut(u)); });
+    S.user=u; S.authMsg=null; S.tab="dash"; S.co=null; ls("bz_session",u.id);
     render(); startPoll();
   };
-  const g=document.getElementById("fSignup");
-  if(g) g.onsubmit=async e=>{
+
+  var g=document.getElementById("fSignup");
+  if(g) g.onsubmit=async function(e){
     e.preventDefault();
-    const co=document.getElementById("su_co").value;
-    const no=document.getElementById("su_no").value.trim();
-    const nm=document.getElementById("su_nm").value.trim();
-    if(!no||!nm) return;
+    var co=document.getElementById("su_co").value;
+    var nm=document.getElementById("su_nm").value.trim();
+    var no=document.getElementById("su_no").value.trim();
+    var pw=document.getElementById("su_pw").value;
+    var pw2=document.getElementById("su_pw2").value;
+    var rl=+document.getElementById("su_lv").value;
+    if(!nm||!no){ S.authMsg={t:"e",m:"이름과 사번을 입력하세요."}; return render(); }
+    if(pw.length<4){ S.authMsg={t:"e",m:"비밀번호는 4자 이상이어야 합니다."}; return render(); }
+    if(pw!==pw2){ S.authMsg={t:"e",m:"비밀번호가 서로 다릅니다."}; return render(); }
     await pull();
-    const id=co+no;
-    if(S.users.some(u=>u.id===id)){ S.authMsg={t:"e",m:`이미 등록된 아이디입니다 (${id}).`}; return render(); }
-    const first=S.users.length===0;
-    const u={id,pass:nm,name:nm,company:co,level:first?4:1,status:first?"approved":"pending",
-      readOnly:false,pwChanged:false,createdAt:Date.now(),lastLogin:0};
-    const r=await push(()=>db.from("users").insert(M.userOut(u)));
-    if(!r) return;
+    var id=co+no;
+    if(S.users.filter(function(u){return u.id===id;}).length){
+      S.authMsg={t:"e",m:"이미 등록된 아이디입니다 ("+id+")."}; return render(); }
+    var first=S.users.length===0;
+    var u={id:id,pass:pw,name:nm,company:co,level:first?4:1,reqLevel:first?4:rl,
+      status:first?"approved":"pending",createdAt:Date.now(),lastLogin:0};
+    if(!await push(function(){ return db.from("users").insert(M.userOut(u)); })) return;
     if(first && S.items.length===0){
-      await push(()=>db.from("items").insert(seedItems().map(M.itemOut)));
+      await push(function(){ return db.from("items").insert(seedItems().map(M.itemOut)); });
     }
     S.authTab="login";
-    S.authMsg=first
-      ? {t:"o",m:`최초 가입자이므로 총관리자(Lv.4)로 자동 승인되었습니다. 기본 품목 30종도 등록했습니다. 아이디: ${id} / 비밀번호: ${nm}`}
-      : {t:"o",m:`가입 신청 완료. 아이디: ${id} · 승인 후 로그인할 수 있습니다.`};
+    S.authMsg = first
+      ? {t:"o",m:"최초 가입자이므로 총관리자(Lv.4)로 자동 승인되었습니다. 아이디: "+id}
+      : {t:"o",m:"계정 생성 신청 완료. 아이디: "+id+" · Lv."+rl+" 신청 · 총관리자 승인 후 로그인할 수 있습니다."};
     render();
   };
 }
 
-/* ── 셸 ── */
-function pendingCount(){
-  if(lv(3)) return S.users.filter(u=>u.status==="pending").length;
-  if(lv(2)) return S.users.filter(u=>u.status==="pending"&&u.company===S.user.company&&u.level===1).length;
-  return 0;
-}
-function emgOpen(){ return S.emergencies.filter(e=>e.status==="pending").length; }
+/* ── 앱 셸 ────────────────────────────────────────────────── */
+function pendingCount(){ return canGrant()? S.users.filter(function(u){return u.status==="pending";}).length : 0; }
+function emgOpen(){ return lv(3)? S.emergencies.filter(function(e){return e.status==="pending";}).length : 0; }
 
 function tabList(){
-  const t=[{k:"dash",l:"대시보드"}];
-  if(!ro()) t.push({k:"withdraw",l:"불출 · 반납"});
+  var t=[{k:"dash",l:"재고 현황"}];
+  t.push({k:"withdraw",l:lv(2)?"불출 · 입고":"부자재 불출"});
   t.push({k:"mylog",l:"나의 이력"});
-  t.push({k:"emg",l:"긴급 신청",badge:lv(3)?emgOpen():0});
-  if(lv(2)) t.push({k:"req",l:"신청 수량"});
-  if(lv(2)) t.push({k:"logs",l:lv(3)?"전체 로그":"우리 업체 로그"});
+  if(canRequest()) t.push({k:"emg",l:"긴급 신청",badge:emgOpen()});
+  if(canRequest()) t.push({k:"req",l:"익월 신청"});
+  if(lv(2)) t.push({k:"logs",l:lv(3)?"전체 로그":"업체 로그"});
   if(lv(2)) t.push({k:"stk",l:"재고 실사"});
-  if(lv(2)) t.push({k:"users",l:"사용자 관리",badge:pendingCount()});
-  if(lv(3)) t.push({k:"in",l:"입고 등록"});
-  if(lv(4)) t.push({k:"items",l:"품목 마스터"});
+  if(lv(2)) t.push({k:"colist",l:"업체 취급 품목"});
+  if(canGrant()) t.push({k:"grant",l:"권한 관리",badge:pendingCount()});
+  if(canManageItems()) t.push({k:"items",l:"품목 마스터"});
   t.push({k:"me",l:"내 계정"});
   return t;
 }
 
 function viewShell(){
-  const tabs=tabList();
-  if(!tabs.some(t=>t.k===S.tab)) S.tab="dash";
-  const u=S.user;
-  return `
-  <div class="topbar">
-    <div class="brand"><div class="mark">SY</div>
-      <div class="name">부자재 관리 시스템<span>Material Control</span></div></div>
-    <div class="who">
-      <span class="syncdot ${S.sync==="busy"?"busy":S.sync==="err"?"err":""}" id="syncDot"><i></i></span>
-      <button class="btn btn-ghost btn-sm" id="btnSync" style="color:#fff;border-color:#3a5166;background:transparent;">새로고침</button>
-      <span class="lvbadge ${u.readOnly?'ro':''}">${u.readOnly?'VIEW':'LV.'+u.level}</span>
-      <span class="u"><b>${esc(u.name)}</b> · ${esc(u.company)}</span>
-      <button class="btn btn-ghost btn-sm" id="btnOut" style="color:#fff;border-color:#3a5166;background:transparent;">로그아웃</button>
-    </div></div>
-  <div class="tabs">${tabs.map(t=>
-    `<div class="tabbtn ${S.tab===t.k?'active':''}" data-tab="${t.k}">${t.l}${t.badge?`<span class="dot">${t.badge}</span>`:""}</div>`).join("")}</div>
-  <main>${ro()?`<div class="readonly-bar">열람 전용 계정입니다. 조회와 내보내기만 가능합니다.</div>`:""}${viewTab()}</main>
-  <div class="footer-note">사내 부자재 관리 매개체 · 마지막 동기화 ${S.lastSync?fmt(S.lastSync,true):"-"}</div>`;
+  var tabs=tabList();
+  if(!tabs.filter(function(t){return t.k===S.tab;}).length) S.tab="dash";
+  var u=S.user;
+  return '<div class="topbar">'+
+    '<div class="brand"><div class="mark">SY</div>'+
+    '<div class="name">부자재 관리 시스템<span>Material Control</span></div></div>'+
+    '<div class="who">'+
+      '<span class="syncdot '+(S.sync==="busy"?"busy":S.sync==="err"?"err":"")+'" id="syncDot"><i></i></span>'+
+      '<button class="btn btn-ghost btn-sm" id="btnSync" style="color:#fff;border-color:#3a5166;background:transparent;">새로고침</button>'+
+      '<span class="lvbadge">LV.'+u.level+'</span>'+
+      '<span class="u"><b>'+esc(u.name)+'</b> · '+esc(u.company)+'</span>'+
+      '<button class="btn btn-ghost btn-sm" id="btnOut" style="color:#fff;border-color:#3a5166;background:transparent;">로그아웃</button>'+
+    '</div></div>'+
+    '<div class="tabs">'+tabs.map(function(t){
+      return '<div class="tabbtn '+(S.tab===t.k?"active":"")+'" data-tab="'+t.k+'">'+t.l+
+        (t.badge?'<span class="dot">'+t.badge+'</span>':"")+'</div>'; }).join("")+'</div>'+
+    '<main>'+viewTab()+'</main>'+
+    '<div class="footer-note">사내 부자재 관리 매개체 · 마지막 동기화 '+(S.lastSync?fmt(S.lastSync,true):"-")+'</div>';
+}
+
+/* 업체 선택 바 — Lv.3 이상만 노출 */
+function companyBar(){
+  if(!canPickCompany()) return '<div class="cobar"><label>소속 업체</label>'+
+    '<span style="font-size:14px;font-weight:700;">'+esc(curCo())+'</span></div>';
+  var opts=VENDORS.map(function(c){
+    return '<option value="'+esc(c)+'" '+(c===curCo()?"selected":"")+'>'+esc(c)+'</option>'; }).join("");
+  return '<div class="cobar"><label>관리 대상 업체</label><select id="coSel">'+opts+'</select>'+
+    '<span class="now">업체별로 재고를 따로 보관합니다</span></div>';
 }
 
 function bindShell(){
-  document.getElementById("btnOut").onclick=()=>{ ls("bz_session",null); S.user=null; stopPoll(); render(); };
-  document.getElementById("btnSync").onclick=async()=>{ await pull(); render(); toast("최신 데이터를 불러왔습니다."); };
-  document.querySelectorAll("[data-tab]").forEach(el=>el.onclick=async()=>{
-    S.tab=el.dataset.tab; S.wMsg=null; await pull(); render(); });
-  ({withdraw:bindWithdraw,emg:bindEmg,req:bindReq,logs:bindLogs,stk:bindStk,
-    users:bindUsers,in:bindIn,items:bindItems,me:bindMe,dash:bindDash}[S.tab]||function(){})();
+  document.getElementById("btnOut").onclick=function(){ ls("bz_session",null); S.user=null; stopPoll(); render(); };
+  document.getElementById("btnSync").onclick=async function(){ await pull(); render(); toast("최신 데이터를 불러왔습니다."); };
+  document.querySelectorAll("[data-tab]").forEach(function(el){
+    el.onclick=async function(){ S.tab=el.dataset.tab; S.msg={}; S.wMsg=null; await pull(); render(); }; });
+  var cs=document.getElementById("coSel");
+  if(cs) cs.onchange=function(){ S.co=cs.value; S.wItem=null; S.wQty=0; render(); };
+  var fn={dash:bindDash,withdraw:bindWithdraw,emg:bindEmg,req:bindReq,logs:bindLogs,
+    stk:bindStk,colist:bindColist,grant:bindGrant,items:bindItems,me:bindMe}[S.tab];
+  if(fn) fn();
 }
 
 function viewTab(){
-  return ({dash:viewDash,withdraw:viewWithdraw,mylog:viewMyLog,emg:viewEmg,req:viewReq,
-    logs:viewLogs,stk:viewStk,users:viewUsers,in:viewIn,items:viewItems,me:viewMe}[S.tab]||(()=>""))();
+  var fn={dash:viewDash,withdraw:viewWithdraw,mylog:viewMyLog,emg:viewEmg,req:viewReq,
+    logs:viewLogs,stk:viewStk,colist:viewColist,grant:viewGrant,items:viewItems,me:viewMe}[S.tab];
+  return fn?fn():"";
 }
 
-let pollTimer=null;
-function startPoll(){ stopPoll(); pollTimer=setInterval(async()=>{
-  const a=document.activeElement;
+var pollTimer=null;
+function startPoll(){ stopPoll(); pollTimer=setInterval(async function(){
+  var a=document.activeElement;
   if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)) return;
   if(document.hidden) return;
   if(await pull()) render();
 },20000); }
 function stopPoll(){ if(pollTimer) clearInterval(pollTimer); pollTimer=null; }
 
-/* ── 대시보드 ── */
-const TYPE_TAG={out:'<span class="tag t-out">불출</span>',in:'<span class="tag t-in">입고</span>',
+/* ══════════════════════════════════════════════════════════
+   재고 현황
+   ══════════════════════════════════════════════════════════ */
+var TYPE_TAG={out:'<span class="tag t-out">불출</span>',in:'<span class="tag t-in">입고</span>',
   ret:'<span class="tag t-ret">반납</span>',adj:'<span class="tag t-adj">실사조정</span>',
   cancel:'<span class="tag t-can">정정취소</span>'};
+var TYPE_KR={out:"불출",in:"입고",ret:"반납",adj:"실사조정",cancel:"정정취소"};
 
 function logRow(l){
-  return `<tr style="${l.void?'opacity:.5;':''}">
-    <td>${fmt(l.ts,true)}</td><td>${TYPE_TAG[l.type]||""}</td>
-    <td class="kr">${esc(l.company||"-")}</td><td class="kr">${esc(l.itemName)}</td>
-    <td>${l.type==="out"?"-":"+"}${nf(l.qty)}</td>
-    <td class="kr">${esc(l.taker||"-")}</td><td class="kr">${esc(l.team||"-")}</td></tr>`;
+  return '<tr style="'+(l.void?"opacity:.45;":"")+'">'+
+    '<td>'+fmt(l.ts,true)+'</td><td>'+(TYPE_TAG[l.type]||"")+'</td>'+
+    '<td class="kr">'+esc(l.company||"-")+'</td><td class="kr">'+esc(l.itemName)+'</td>'+
+    '<td>'+(l.type==="out"?"-":"+")+nf(l.qty)+'</td>'+
+    '<td class="kr">'+esc(l.taker||"-")+'</td><td class="kr">'+esc(l.team||"-")+'</td></tr>';
 }
 
 function viewDash(){
-  const low=S.items.filter(i=>i.minStock>0&&i.stock<=i.minStock);
-  const out24=S.logs.filter(l=>l.type==="out"&&!l.void&&l.ts>=Date.now()-864e5).length;
-  const pend=pendingCount(), emg=emgOpen();
-  const rows=S.items.map(i=>{
-    const base=Math.max(i.minStock*3,i.stock,1);
-    const pct=Math.min(100,Math.round(i.stock/base*100));
-    let c=""; if(i.minStock>0&&i.stock<=i.minStock)c="danger";
-    else if(i.minStock>0&&i.stock<=i.minStock*1.5)c="warn";
-    return `<tr><td class="kr">${esc(i.name)}</td><td>${nf(i.stock)} ${esc(i.unit)}</td>
-      <td style="width:150px;"><div class="gauge"><div class="gauge-fill ${c}" style="width:${pct}%"></div></div></td>
-      <td>${c==="danger"?'<span class="tag t-danger">부족</span>':c==="warn"?'<span class="tag t-warn">주의</span>':'<span class="tag t-ok">정상</span>'}</td></tr>`;
+  var co=curCo(), list=itemsOf(co), low=lowOf(co);
+  var out24=S.logs.filter(function(l){
+    return l.type==="out"&&!l.void&&l.company===co&&l.ts>=Date.now()-864e5; }).length;
+
+  var rows=list.map(function(x){
+    var q=x.stock.qty, mn=x.stock.minQty;
+    var base=Math.max(mn*3,q,1), pct=Math.min(100,Math.round(q/base*100));
+    var c=""; if(mn>0&&q<=mn) c="danger"; else if(mn>0&&q<=mn*1.5) c="warn";
+    return '<tr><td class="kr">'+esc(x.item.name)+'</td>'+
+      '<td>'+nf(q)+' '+esc(x.item.unit)+'</td>'+
+      '<td>'+(mn>0?nf(mn):"-")+'</td>'+
+      '<td style="width:140px;"><div class="gauge"><div class="gauge-fill '+c+'" style="width:'+pct+'%"></div></div></td>'+
+      '<td>'+(c==="danger"?'<span class="tag t-danger">부족</span>':
+              c==="warn"?'<span class="tag t-warn">주의</span>':'<span class="tag t-ok">정상</span>')+'</td></tr>';
   }).join("");
-  const scope=scopeCompany();
-  const recent=S.logs.filter(l=>!scope||l.company===scope||l.type==="in").slice(0,10).map(logRow).join("");
-  return `
-  <div class="grid3">
-    <div class="statcard"><div class="lbl">관리 품목</div><div class="val">${S.items.length} <small>종</small></div></div>
-    <div class="statcard"><div class="lbl">재고 부족</div><div class="val" style="color:${low.length?'#d1462f':'#0d2436'}">${low.length} <small>종</small></div></div>
-    <div class="statcard"><div class="lbl">24시간 불출</div><div class="val">${out24} <small>건</small></div></div>
-  </div>
-  ${pend?`<div class="msg msg-warn">승인 대기 계정 ${pend}건. <b>사용자 관리</b> 탭에서 처리하세요.</div>`:""}
-  ${lv(3)&&emg?`<div class="msg msg-error">미처리 긴급 신청 ${emg}건. <b>긴급 신청</b> 탭에서 확인하세요.</div>`:""}
-  ${low.length?`<div class="msg msg-warn">최소 재고 미만: ${low.slice(0,6).map(i=>esc(i.name)).join(", ")}${low.length>6?` 외 ${low.length-6}종`:""}</div>`:""}
-  <div class="panel"><div class="panel-head"><div><h2>재고 현황</h2><div class="sub">전 업체 공용 · 모든 기기 공유</div></div>
-    ${lv(2)?`<button class="btn btn-ghost btn-sm" id="csvStock">CSV 내보내기</button>`:""}</div>
-    <div class="tablewrap"><table><thead><tr><th>품목</th><th>재고</th><th>수준</th><th>상태</th></tr></thead>
-      <tbody>${rows||'<tr><td colspan="4" class="empty">품목이 없습니다.</td></tr>'}</tbody></table></div></div>
-  <div class="panel"><div class="panel-head"><div><h2>최근 입출고</h2><div class="sub">${scope?esc(scope):"전체"} · 최근 10건</div></div></div>
-    <div class="tablewrap"><table><thead><tr><th>일시</th><th>구분</th><th>업체</th><th>품목</th><th>수량</th><th>담당자</th><th>작업팀</th></tr></thead>
-      <tbody>${recent||'<tr><td colspan="7" class="empty">기록이 없습니다.</td></tr>'}</tbody></table></div></div>`;
-}
-function bindDash(){
-  const c=document.getElementById("csvStock");
-  if(c) c.onclick=()=>exportCSV("재고현황",["품목","단위","현재고","최소재고","취급단위"],
-    S.items.map(i=>[i.name,i.unit,i.stock,i.minStock,i.step]));
+
+  var recent=S.logs.filter(function(l){ return l.company===co; }).slice(0,10).map(logRow).join("");
+
+  return companyBar()+
+  '<div class="grid3">'+
+    '<div class="statcard"><div class="lbl">취급 품목</div><div class="val">'+list.length+' <small>종</small></div></div>'+
+    '<div class="statcard"><div class="lbl">재고 부족</div><div class="val" style="color:'+(low.length?"#d1462f":"#0d2436")+'">'+low.length+' <small>종</small></div></div>'+
+    '<div class="statcard"><div class="lbl">24시간 불출</div><div class="val">'+out24+' <small>건</small></div></div>'+
+  '</div>'+
+  (canGrant()&&pendingCount()?'<div class="msg msg-warn">권한 승인 대기 '+pendingCount()+'건. <b>권한 관리</b> 탭에서 처리하세요.</div>':"")+
+  (lv(3)&&emgOpen()?'<div class="msg msg-error">미처리 긴급 신청 '+emgOpen()+'건. <b>긴급 신청</b> 탭에서 확인하세요.</div>':"")+
+  (low.length?'<div class="msg msg-warn">최소 재고 미만: '+low.slice(0,6).map(function(x){return esc(x.item.name);}).join(", ")+
+    (low.length>6?" 외 "+(low.length-6)+"종":"")+'</div>':"")+
+  (list.length===0?'<div class="msg msg-info">'+esc(co)+' 취급 품목이 아직 등록되지 않았습니다. '+
+    (lv(2)?'<b>업체 취급 품목</b> 탭에서 이 업체가 보관하는 품목을 먼저 등록하세요.':'업체 공구장에게 품목 등록을 요청하세요.')+'</div>':"")+
+  '<div class="panel"><div class="panel-head"><div><h2>'+esc(co)+' 재고 현황</h2>'+
+    '<div class="sub">이 업체가 보관 중인 품목만 표시됩니다</div></div>'+
+    (canExport()?'<button class="btn btn-ghost btn-sm" id="csvStock">Excel 내보내기</button>':"")+'</div>'+
+    '<div class="tablewrap"><table><thead><tr><th>품목</th><th>보유량</th><th>최소재고</th><th>수준</th><th>상태</th></tr></thead>'+
+    '<tbody>'+(rows||'<tr><td colspan="5" class="empty">등록된 취급 품목이 없습니다.</td></tr>')+'</tbody></table></div></div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>최근 입출고</h2><div class="sub">'+esc(co)+' · 최근 10건</div></div></div>'+
+    '<div class="tablewrap"><table><thead><tr><th>일시</th><th>구분</th><th>업체</th><th>품목</th><th>수량</th><th>담당자</th><th>작업팀</th></tr></thead>'+
+    '<tbody>'+(recent||'<tr><td colspan="7" class="empty">기록이 없습니다.</td></tr>')+'</tbody></table></div></div>';
 }
 
-/* ── 불출 · 반납 ── */
-function stepsFor(it){ const s=it.step||1; return [s,s*10].filter((v,i,a)=>a.indexOf(v)===i); }
-function presetsFor(it){ const s=it.step||1; return [s*5,s*10,s*25,s*50]; }
-function recentItemIds(){
-  const out=[]; for(const l of S.logs){ if(l.by===S.user.id&&l.type==="out"&&!out.includes(l.itemId)) out.push(l.itemId);
-    if(out.length>=5) break; } return out;
+function bindDash(){
+  var c=document.getElementById("csvStock");
+  if(c) c.onclick=function(){ var co=curCo();
+    exportCSV("재고현황_"+co,["업체","품목","단위","보유량","최소재고"],
+      itemsOf(co).map(function(x){ return [co,x.item.name,x.item.unit,x.stock.qty,x.stock.minQty]; })); };
 }
-function knownTeams(){ return [...new Set(S.logs.map(l=>l.team).filter(Boolean))].slice(0,40); }
+
+/* ══════════════════════════════════════════════════════════
+   불출 · 입고 · 반납
+   ══════════════════════════════════════════════════════════ */
+function stepsFor(it){ var s=it.step||1; return [s,s*10].filter(function(v,i,a){return a.indexOf(v)===i;}); }
+function presetsFor(it){ var s=it.step||1; return [s*5,s*10,s*25,s*50]; }
+function recentItemIds(){
+  var out=[];
+  for(var i=0;i<S.logs.length;i++){ var l=S.logs[i];
+    if(l.by===S.user.id&&l.type==="out"&&out.indexOf(l.itemId)<0) out.push(l.itemId);
+    if(out.length>=5) break; }
+  return out;
+}
+function knownTeams(){
+  var seen={},out=[];
+  S.logs.forEach(function(l){ if(l.team&&!seen[l.team]){ seen[l.team]=1; out.push(l.team); } });
+  return out.slice(0,40);
+}
 
 function viewWithdraw(){
-  const list=S.items.filter(i=>!S.wSearch||i.name.toLowerCase().includes(S.wSearch.toLowerCase()));
-  const fav=recentItemIds();
-  const sorted=[...list].sort((a,b)=>{
-    const fa=fav.indexOf(a.id),fb=fav.indexOf(b.id);
-    if(fa!==-1&&fb!==-1) return fa-fb; if(fa!==-1) return -1; if(fb!==-1) return 1;
-    return a.name.localeCompare(b.name,"ko"); });
-  const it=S.wItem?item(S.wItem):null;
-  const coOpts=VENDORS.map(c=>`<option value="${esc(c)}" ${c===(S.wCompany||defaultVendor())?"selected":""}>${esc(c)}</option>`).join("");
-  return `
-  ${isDept(S.user)?`<div class="msg msg-warn">멤브레인공사부 계정입니다. 협력업체를 대신해 등록할 때만 사용하고, 반드시 <b>실제 수령 업체</b>를 선택하세요.</div>`:""}
-  ${S.wMsg?`<div class="msg ${S.wMsg.t==='e'?'msg-error':'msg-ok'}">${esc(S.wMsg.m)}</div>`:""}
-  <div class="panel">
-    <div class="panel-head"><div><h2>${S.wMode==="out"?"부자재 불출 등록":"부자재 반납 등록"}</h2>
-      <div class="sub">등록 즉시 모든 기기의 재고에 반영되고 이력이 남습니다.</div></div>
-      <div class="seg"><div class="segbtn ${S.wMode==="out"?"on":""}" data-mode="out">불출</div>
-        <div class="segbtn ${S.wMode==="ret"?"on":""}" data-mode="ret">반납</div></div></div>
-    <div class="panel-body">
-      <div class="field"><label>1. 품목 선택</label>
-        <div class="picker"><div class="picker-search"><input type="text" id="wSearch" placeholder="품목명 검색" value="${esc(S.wSearch)}"></div>
-          <div class="picker-list">${sorted.map(i=>`
-            <div class="pitem ${S.wItem===i.id?"sel":""}" data-pick="${i.id}">
-              <span class="nm">${esc(i.name)}${fav.includes(i.id)?'<span class="fav">최근</span>':""}</span>
-              <span class="st">재고 ${nf(i.stock)} ${esc(i.unit)}</span></div>`).join("")
-            ||'<div class="empty">검색 결과가 없습니다.</div>'}</div></div></div>
-      ${it?`
-      <div class="field"><label>2. 수량 입력 — ${esc(it.name)}</label>
-        <div class="qty-box">
-          <div class="qty-display"><input type="number" id="wQty" inputmode="numeric" min="0" value="${S.wQty||""}" placeholder="0">
-            <span class="qty-unit">${esc(it.unit)}</span></div>
-          <div class="qty-rows">${stepsFor(it).map(s=>`<div class="qty-row">
-            <button type="button" class="qbtn minus" data-add="${-s*10}">−${nf(s*10)}</button>
-            <button type="button" class="qbtn minus" data-add="${-s}">−${nf(s)}</button>
-            <button type="button" class="qbtn" data-add="${s}">+${nf(s)}</button>
-            <button type="button" class="qbtn" data-add="${s*10}">+${nf(s*10)}</button></div>`).join("")}</div>
-          <div class="qchips">${presetsFor(it).map(p=>`<button type="button" class="qchip" data-set="${p}">${nf(p)}</button>`).join("")}
-            <button type="button" class="qclear" data-set="0">초기화</button></div>
-          <div class="qty-meta">기본 취급 단위 <b>${nf(it.step||1)}${esc(it.unit)}</b> · 현재 재고 <b>${nf(it.stock)}${esc(it.unit)}</b>
-            ${S.wMode==="out"&&S.wQty>it.stock?`<br><span style="color:var(--danger);font-weight:600;">입력 수량이 현재 재고를 초과합니다. 실물 확인 후 진행하세요.</span>`:""}</div>
-        </div></div>
-      <div class="field"><label>3. 사용 정보</label>
-        <div class="form-row" style="margin-bottom:10px;">
-          <div class="field"><label>업체</label><select id="wCo" ${lv(3)?"":"disabled"}>${coOpts}</select></div>
-          <div class="field"><label>가져가는 사람</label><input type="text" id="wTaker" value="${esc(S.user.name)}"></div></div>
-        <div class="form-row">
-          <div class="field"><label>작업팀</label><input type="text" id="wTeam" list="teamList" value="${esc(S.wTeam)}" placeholder="예: 선행 1팀">
-            <datalist id="teamList">${knownTeams().map(t=>`<option value="${esc(t)}">`).join("")}</datalist></div>
-          <div class="field"><label>작업 시점</label><input type="datetime-local" id="wTime" value="${nowLocal()}"></div></div></div>
-      <button class="btn ${S.wMode==="out"?"btn-primary":"btn-navy"} btn-block" id="wSubmit"
-        style="margin-top:16px;padding:14px;font-size:15px;" ${!S.wQty?"disabled":""}>
-        ${S.wMode==="out"?"불출 등록":"반납 등록"} ${S.wQty?`(${nf(S.wQty)}${esc(it.unit)})`:""}</button>
-      `:`<div class="msg msg-info">위 목록에서 품목을 먼저 선택하세요.</div>`}
-    </div></div>`;
+  var co=curCo();
+  var pool=itemsOf(co).filter(function(x){
+    return !S.wSearch || x.item.name.toLowerCase().indexOf(S.wSearch.toLowerCase())>=0; });
+  var fav=recentItemIds();
+  pool.sort(function(a,b){
+    var fa=fav.indexOf(a.item.id), fb=fav.indexOf(b.item.id);
+    if(fa>=0&&fb>=0) return fa-fb; if(fa>=0) return -1; if(fb>=0) return 1;
+    return a.item.name.localeCompare(b.item.name,"ko"); });
+
+  var sel=S.wItem?stockOf(co,S.wItem):null;
+  var it=S.wItem?itemById(S.wItem):null;
+  if(!sel) it=null;
+
+  var modes='<div class="segbtn '+(S.wMode==="out"?"on":"")+'" data-mode="out">불출 (−)</div>';
+  if(canAddStock()) modes+='<div class="segbtn '+(S.wMode==="in"?"on":"")+'" data-mode="in">입고 (+)</div>'+
+    '<div class="segbtn '+(S.wMode==="ret"?"on":"")+'" data-mode="ret">반납 (+)</div>';
+
+  var title={out:"부자재 불출 등록",in:"부자재 입고 등록",ret:"부자재 반납 등록"}[S.wMode];
+
+  return companyBar()+
+  (S.wMsg?'<div class="msg '+(S.wMsg.t==="e"?"msg-error":"msg-ok")+'">'+esc(S.wMsg.m)+'</div>':"")+
+  (!canAddStock()?'<div class="msg msg-info">수령자 권한입니다. 창고에서 가져간 수량을 차감 등록할 수 있습니다.</div>':"")+
+  '<div class="panel"><div class="panel-head"><div><h2>'+title+'</h2>'+
+    '<div class="sub">'+esc(co)+' 재고에 즉시 반영되고 이력이 남습니다.</div></div>'+
+    '<div class="seg">'+modes+'</div></div>'+
+  '<div class="panel-body">'+
+    '<div class="field"><label>1. 품목 선택</label>'+
+      '<div class="picker"><div class="picker-search">'+
+        '<input type="text" id="wSearch" placeholder="품목명 검색" value="'+esc(S.wSearch)+'"></div>'+
+      '<div class="picker-list">'+(pool.map(function(x){
+        return '<div class="pitem '+(S.wItem===x.item.id?"sel":"")+'" data-pick="'+x.item.id+'">'+
+          '<span class="nm">'+esc(x.item.name)+(fav.indexOf(x.item.id)>=0?'<span class="fav">최근</span>':"")+'</span>'+
+          '<span class="st">보유 '+nf(x.stock.qty)+' '+esc(x.item.unit)+'</span></div>'; }).join("")
+        ||'<div class="empty">'+(itemsOf(co).length===0?"이 업체의 취급 품목이 등록되지 않았습니다.":"검색 결과가 없습니다.")+'</div>')+
+      '</div></div></div>'+
+    (it?
+      '<div class="field"><label>2. 수량 입력 — '+esc(it.name)+'</label>'+
+      '<div class="qty-box">'+
+        '<div class="qty-display"><input type="number" id="wQty" inputmode="numeric" min="0" value="'+(S.wQty||"")+'" placeholder="0">'+
+          '<span class="qty-unit">'+esc(it.unit)+'</span></div>'+
+        '<div class="qty-rows">'+stepsFor(it).map(function(s){
+          return '<div class="qty-row">'+
+            '<button type="button" class="qbtn minus" data-add="'+(-s*10)+'">−'+nf(s*10)+'</button>'+
+            '<button type="button" class="qbtn minus" data-add="'+(-s)+'">−'+nf(s)+'</button>'+
+            '<button type="button" class="qbtn" data-add="'+s+'">+'+nf(s)+'</button>'+
+            '<button type="button" class="qbtn" data-add="'+(s*10)+'">+'+nf(s*10)+'</button></div>'; }).join("")+'</div>'+
+        '<div class="qchips">'+presetsFor(it).map(function(p){
+          return '<button type="button" class="qchip" data-set="'+p+'">'+nf(p)+'</button>'; }).join("")+
+          '<button type="button" class="qclear" data-set="0">초기화</button></div>'+
+        '<div class="qty-meta">기본 취급 단위 <b>'+nf(it.step||1)+esc(it.unit)+'</b> · '+esc(co)+' 보유량 <b>'+nf(sel.qty)+esc(it.unit)+'</b>'+
+        (S.wMode==="out"&&S.wQty>sel.qty?'<br><span style="color:var(--danger);font-weight:600;">보유량을 초과합니다. 실물 확인 후 진행하세요.</span>':"")+
+        '</div></div></div>'+
+      '<div class="field"><label>3. 사용 정보</label>'+
+        '<div class="form-row" style="margin-bottom:10px;">'+
+          '<div class="field"><label>'+(S.wMode==="in"?"입고 담당자":"가져가는 사람")+'</label>'+
+            '<input type="text" id="wTaker" value="'+esc(S.user.name)+'"></div>'+
+          '<div class="field"><label>'+(S.wMode==="in"?"비고 (입고처 등)":"작업팀")+'</label>'+
+            '<input type="text" id="wTeam" list="teamList" value="'+esc(S.wTeam)+'" placeholder="'+(S.wMode==="in"?"예: 8월 정기 입고":"예: 선행 1팀")+'">'+
+            '<datalist id="teamList">'+knownTeams().map(function(t){return '<option value="'+esc(t)+'">';}).join("")+'</datalist></div>'+
+        '</div>'+
+        '<div class="form-row"><div class="field"><label>작업 시점</label>'+
+          '<input type="datetime-local" id="wTime" value="'+nowLocal()+'"></div>'+
+          '<div class="field"></div></div></div>'+
+      '<button class="btn '+(S.wMode==="out"?"btn-primary":"btn-navy")+' btn-block" id="wSubmit"'+
+        ' style="margin-top:16px;padding:14px;font-size:15px;" '+(!S.wQty?"disabled":"")+'>'+
+        {out:"불출 등록",in:"입고 등록",ret:"반납 등록"}[S.wMode]+
+        (S.wQty?" ("+nf(S.wQty)+esc(it.unit)+")":"")+'</button>'
+      :'<div class="msg msg-info">위 목록에서 품목을 먼저 선택하세요.</div>')+
+  '</div></div>';
 }
 
 function bindWithdraw(){
-  document.querySelectorAll("[data-mode]").forEach(el=>el.onclick=()=>{ S.wMode=el.dataset.mode; S.wMsg=null; render(); });
-  const se=document.getElementById("wSearch");
-  if(se) se.oninput=()=>{ S.wSearch=se.value; const p=se.selectionStart; render();
-    const n=document.getElementById("wSearch"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
-  document.querySelectorAll("[data-pick]").forEach(el=>el.onclick=()=>{ S.wItem=el.dataset.pick; S.wQty=0; S.wMsg=null; render(); });
-  const q=document.getElementById("wQty");
-  if(q){ q.oninput=()=>{ S.wQty=Math.max(0,parseInt(q.value,10)||0);
-    const b=document.getElementById("wSubmit"); if(b) b.disabled=!S.wQty; }; q.onblur=()=>render(); }
-  document.querySelectorAll("[data-add]").forEach(el=>el.onclick=()=>{ S.wQty=Math.max(0,(S.wQty||0)+ +el.dataset.add); render(); });
-  document.querySelectorAll("[data-set]").forEach(el=>el.onclick=()=>{ S.wQty=+el.dataset.set; render(); });
-  const co=document.getElementById("wCo"); if(co) co.onchange=()=>{ S.wCompany=co.value; };
-  const tm=document.getElementById("wTeam"); if(tm) tm.oninput=()=>{ S.wTeam=tm.value; };
+  document.querySelectorAll("[data-mode]").forEach(function(el){
+    el.onclick=function(){ S.wMode=el.dataset.mode; S.wMsg=null; render(); }; });
+  var se=document.getElementById("wSearch");
+  if(se) se.oninput=function(){ S.wSearch=se.value; var p=se.selectionStart; render();
+    var n=document.getElementById("wSearch"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
+  document.querySelectorAll("[data-pick]").forEach(function(el){
+    el.onclick=function(){ S.wItem=el.dataset.pick; S.wQty=0; S.wMsg=null; render(); }; });
+  var q=document.getElementById("wQty");
+  if(q){ q.oninput=function(){ S.wQty=Math.max(0,parseInt(q.value,10)||0);
+    var b=document.getElementById("wSubmit"); if(b) b.disabled=!S.wQty; };
+    q.onblur=function(){ render(); }; }
+  document.querySelectorAll("[data-add]").forEach(function(el){
+    el.onclick=function(){ S.wQty=Math.max(0,(S.wQty||0)+(+el.dataset.add)); render(); }; });
+  document.querySelectorAll("[data-set]").forEach(function(el){
+    el.onclick=function(){ S.wQty=+el.dataset.set; render(); }; });
+  var tm=document.getElementById("wTeam"); if(tm) tm.oninput=function(){ S.wTeam=tm.value; };
 
-  const sub=document.getElementById("wSubmit");
-  if(sub) sub.onclick=async()=>{
-    const it=item(S.wItem); if(!it||!S.wQty) return;
-    const company=lv(3)?document.getElementById("wCo").value:S.user.company;
-    if(company===DEPT){ S.wMsg={t:"e",m:"멤브레인공사부는 관리 조직입니다. 불출 대상 협력업체를 선택하세요."}; return render(); }
-    const taker=document.getElementById("wTaker").value.trim();
-    const team=document.getElementById("wTeam").value.trim();
-    const tv=document.getElementById("wTime").value;
-    if(!taker||!team){ S.wMsg={t:"e",m:"가져가는 사람과 작업팀은 반드시 입력해야 합니다."}; return render(); }
-    const qty=S.wQty, delta=S.wMode==="out"?-qty:qty, mode=S.wMode;
+  var sub=document.getElementById("wSubmit");
+  if(sub) sub.onclick=async function(){
+    var co=curCo(), it=itemById(S.wItem);
+    if(!it||!S.wQty) return;
+    if(S.wMode!=="out" && !canAddStock()){ toast("재고를 늘리는 권한이 없습니다.",true); return; }
+    var taker=document.getElementById("wTaker").value.trim();
+    var team=document.getElementById("wTeam").value.trim();
+    var tv=document.getElementById("wTime").value;
+    if(!taker||(!team&&S.wMode==="out")){
+      S.wMsg={t:"e",m:"담당자와 작업팀은 반드시 입력해야 합니다."}; return render(); }
+    var qty=S.wQty, mode=S.wMode, delta=(mode==="out"?-qty:qty);
     sub.disabled=true; sub.textContent="저장 중…";
-    const log={id:uid(),ts:tv?new Date(tv).getTime():Date.now(),type:mode,company,
-      itemId:it.id,itemName:it.name,unit:it.unit,qty,taker,team,by:S.user.id,byName:S.user.name};
-    const res=await push(()=>db.rpc("apply_movement",{p_log:M.logOut(log),p_item_id:it.id,p_delta:delta}));
-    if(!res){ S.wMsg={t:"e",m:"저장에 실패했습니다. 다시 시도해 주세요."}; return render(); }
+    var log={id:uid(),ts:tv?new Date(tv).getTime():Date.now(),type:mode,company:co,
+      itemId:it.id,itemName:it.name,unit:it.unit,qty:qty,taker:taker,team:team||"-",
+      by:S.user.id,byName:S.user.name};
+    var r=await push(function(){ return db.rpc("apply_stock_movement",
+      {p_log:M.logOut(log),p_company:co,p_item_id:it.id,p_delta:delta}); });
+    if(!r){ S.wMsg={t:"e",m:"저장에 실패했습니다. 다시 시도해 주세요."}; return render(); }
     await pull();
-    const cur=item(it.id);
-    S.wMsg={t:"o",m:`${it.name} ${nf(qty)}${it.unit} ${mode==="out"?"불출":"반납"} 완료 · 현재 재고 ${nf(cur?cur.stock:0)}${it.unit}`};
+    var cur=stockOf(co,it.id);
+    S.wMsg={t:"o",m:it.name+" "+nf(qty)+it.unit+" "+({out:"불출",in:"입고",ret:"반납"}[mode])+
+      " 완료 · "+co+" 보유량 "+nf(cur?cur.qty:0)+it.unit};
     S.wQty=0; S.wTeam=team; render();
   };
 }
 
-/* ── 나의 이력 ── */
+/* ── 나의 이력 ────────────────────────────────────────────── */
 function viewMyLog(){
-  const mine=S.logs.filter(l=>l.by===S.user.id);
-  return `<div class="panel"><div class="panel-head"><div><h2>나의 이력</h2>
-    <div class="sub">본인이 등록한 ${mine.length}건</div></div></div>
-    <div class="tablewrap"><table><thead><tr><th>일시</th><th>구분</th><th>업체</th><th>품목</th><th>수량</th><th>담당자</th><th>작업팀</th></tr></thead>
-      <tbody>${mine.map(logRow).join("")||'<tr><td colspan="7" class="empty">등록한 내역이 없습니다.</td></tr>'}</tbody></table></div></div>`;
+  var mine=S.logs.filter(function(l){ return l.by===S.user.id; });
+  return '<div class="panel"><div class="panel-head"><div><h2>나의 이력</h2>'+
+    '<div class="sub">본인이 등록한 '+mine.length+'건</div></div></div>'+
+    '<div class="tablewrap"><table><thead><tr><th>일시</th><th>구분</th><th>업체</th><th>품목</th><th>수량</th><th>담당자</th><th>작업팀</th></tr></thead>'+
+    '<tbody>'+(mine.map(logRow).join("")||'<tr><td colspan="7" class="empty">등록한 내역이 없습니다.</td></tr>')+'</tbody></table></div></div>';
 }
 
-/* ── 긴급 신청 ── */
+/* ══════════════════════════════════════════════════════════
+   긴급 신청
+   ══════════════════════════════════════════════════════════ */
 function viewEmg(){
-  const list=(lv(3)?S.emergencies:S.emergencies.filter(e=>e.company===S.user.company));
-  const itOpts=S.items.map(i=>`<option value="${i.id}">${esc(i.name)} (재고 ${nf(i.stock)}${esc(i.unit)})</option>`).join("");
-  const st={pending:'<span class="tag t-pend">대기</span>',approved:'<span class="tag t-ok">승인</span>',rejected:'<span class="tag t-danger">반려</span>'};
-  return `
-  <div class="msg msg-info">긴급 신청은 반드시 이 화면으로 접수하세요. 전화·구두 신청은 이력이 남지 않아 익월 수량 산정에 반영되지 않습니다.</div>
-  ${(!ro()&&!isDept(S.user))?`<div class="panel"><div class="panel-head"><div><h2>긴급 신청 접수</h2>
-    <div class="sub">사유는 필수입니다. 사유 분포가 익월 기준 수량의 근거가 됩니다.</div></div></div>
-    <div class="panel-body">
-      <div class="form-row" style="margin-bottom:12px;">
-        <div class="field"><label>품목</label><select id="e_item">${itOpts}</select></div>
-        <div class="field"><label>필요 수량</label><input type="number" id="e_qty" min="1" placeholder="0"></div></div>
-      <div class="form-row" style="margin-bottom:12px;">
-        <div class="field"><label>사유 구분</label><select id="e_cat">
-          <option>물량 증가 (공정 추가)</option><option>불량·재작업 발생</option><option>예상보다 빠른 소모</option>
-          <option>신규 공정 투입</option><option>분실·파손</option><option>기타</option></select></div>
-        <div class="field"><label>작업팀</label><input type="text" id="e_team" placeholder="예: 선행 1팀"></div></div>
-      <div class="field"><label>상세 사유 (필수)</label>
-        <textarea id="e_note" rows="2" placeholder="예: 블록 3개 추가 투입으로 용접와이어 조기 소진"></textarea></div>
-      <button class="btn btn-primary" id="e_submit">긴급 신청 접수</button>
-    </div></div>`:""}
-  <div class="panel"><div class="panel-head"><div><h2>긴급 신청 이력</h2>
-    <div class="sub">${lv(3)?"전체":esc(S.user.company)} · ${list.length}건</div></div>
-    <button class="btn btn-ghost btn-sm" id="csvEmg">CSV 내보내기</button></div>
-    <div class="tablewrap"><table><thead><tr><th>일시</th><th>업체</th><th>품목</th><th>수량</th><th>사유</th><th>상태</th>${canWrite(3)?"<th>처리</th>":""}</tr></thead>
-      <tbody>${list.map(e=>`<tr><td>${fmt(e.ts,true)}</td><td class="kr">${esc(e.company)}</td>
-        <td class="kr">${esc(e.itemName)}</td><td>${nf(e.qty)}</td>
-        <td class="kr" style="max-width:230px;white-space:normal;"><b>${esc(e.category)}</b><br>
-          <span style="color:var(--text-mute);font-size:12px;">${esc(e.note)}</span></td>
-        <td>${st[e.status]||""}</td>
-        ${canWrite(3)?`<td>${e.status==="pending"
-          ?`<button class="btn btn-primary btn-sm eOk" data-id="${e.id}">승인</button>
-            <button class="btn btn-danger btn-sm eNo" data-id="${e.id}">반려</button>`
-          :`<span style="color:var(--text-mute);font-size:11.5px;">${esc(e.handledBy||"")}</span>`}</td>`:""}
-      </tr>`).join("")||`<tr><td colspan="7" class="empty">이력이 없습니다.</td></tr>`}</tbody></table></div></div>`;
+  var list = lv(3) ? S.emergencies : S.emergencies.filter(function(e){ return e.company===S.user.company; });
+  var co=curCo();
+  var itOpts=itemsOf(co).map(function(x){
+    return '<option value="'+x.item.id+'">'+esc(x.item.name)+' (보유 '+nf(x.stock.qty)+esc(x.item.unit)+')</option>'; }).join("");
+  var st={pending:'<span class="tag t-pend">대기</span>',approved:'<span class="tag t-ok">승인</span>',
+    rejected:'<span class="tag t-danger">반려</span>'};
+
+  return companyBar()+
+  '<div class="msg msg-info">긴급 신청은 반드시 이 화면으로 접수하세요. 전화·구두 신청은 이력이 남지 않아 익월 수량 산정에 반영되지 않습니다.</div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>긴급 신청 접수</h2>'+
+    '<div class="sub">사유는 필수입니다. 사유 분포가 익월 기준 수량의 근거가 됩니다.</div></div></div>'+
+    '<div class="panel-body">'+
+      '<div class="form-row" style="margin-bottom:12px;">'+
+        '<div class="field"><label>품목</label><select id="e_item">'+(itOpts||'<option value="">취급 품목 없음</option>')+'</select></div>'+
+        '<div class="field"><label>필요 수량</label><input type="number" id="e_qty" min="1" placeholder="0"></div></div>'+
+      '<div class="form-row" style="margin-bottom:12px;">'+
+        '<div class="field"><label>사유 구분</label><select id="e_cat">'+
+          '<option>물량 증가 (공정 추가)</option><option>불량·재작업 발생</option><option>예상보다 빠른 소모</option>'+
+          '<option>신규 공정 투입</option><option>분실·파손</option><option>기타</option></select></div>'+
+        '<div class="field"><label>작업팀</label><input type="text" id="e_team" placeholder="예: 선행 1팀"></div></div>'+
+      '<div class="field"><label>상세 사유 (필수)</label>'+
+        '<textarea id="e_note" rows="2" placeholder="예: 블록 3개 추가 투입으로 용접와이어 조기 소진"></textarea></div>'+
+      '<button class="btn btn-primary" id="e_submit">긴급 신청 접수</button>'+
+    '</div></div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>긴급 신청 이력</h2>'+
+    '<div class="sub">'+(lv(3)?"전체":esc(S.user.company))+' · '+list.length+'건</div></div>'+
+    (canExport()?'<button class="btn btn-ghost btn-sm" id="csvEmg">Excel 내보내기</button>':"")+'</div>'+
+    '<div class="tablewrap"><table><thead><tr><th>일시</th><th>업체</th><th>품목</th><th>수량</th><th>사유</th><th>상태</th>'+
+      (lv(3)?"<th>처리</th>":"")+'</tr></thead><tbody>'+
+      (list.map(function(e){ return '<tr><td>'+fmt(e.ts,true)+'</td><td class="kr">'+esc(e.company)+'</td>'+
+        '<td class="kr">'+esc(e.itemName)+'</td><td>'+nf(e.qty)+'</td>'+
+        '<td class="kr" style="max-width:230px;white-space:normal;"><b>'+esc(e.category)+'</b><br>'+
+          '<span style="color:var(--text-mute);font-size:12px;">'+esc(e.note)+'</span></td>'+
+        '<td>'+(st[e.status]||"")+'</td>'+
+        (lv(3)?'<td>'+(e.status==="pending"
+          ?'<button class="btn btn-primary btn-sm eOk" data-id="'+e.id+'">승인</button> '+
+            '<button class="btn btn-danger btn-sm eNo" data-id="'+e.id+'">반려</button>'
+          :'<span style="color:var(--text-mute);font-size:11.5px;">'+esc(e.handledBy||"")+'</span>')+'</td>':"")+
+        '</tr>'; }).join("")||'<tr><td colspan="7" class="empty">이력이 없습니다.</td></tr>')+
+    '</tbody></table></div></div>';
 }
 
 function bindEmg(){
-  const b=document.getElementById("e_submit");
-  if(b) b.onclick=async()=>{
-    const it=item(document.getElementById("e_item").value);
-    const qty=parseInt(document.getElementById("e_qty").value,10);
-    const note=document.getElementById("e_note").value.trim();
+  var b=document.getElementById("e_submit");
+  if(b) b.onclick=async function(){
+    var it=itemById(document.getElementById("e_item").value);
+    var qty=parseInt(document.getElementById("e_qty").value,10);
+    var note=document.getElementById("e_note").value.trim();
     if(!it||!qty||qty<=0||!note){ alert("품목, 수량, 상세 사유를 모두 입력해야 접수됩니다."); return; }
-    const e={id:uid(),ts:Date.now(),company:S.user.company,itemId:it.id,itemName:it.name,qty,
-      category:document.getElementById("e_cat").value,note,team:document.getElementById("e_team").value.trim(),
+    var e={id:uid(),ts:Date.now(),company:curCo(),itemId:it.id,itemName:it.name,qty:qty,
+      category:document.getElementById("e_cat").value,note:note,
+      team:document.getElementById("e_team").value.trim(),
       by:S.user.id,byName:S.user.name,status:"pending",handledBy:""};
-    if(await push(()=>db.from("emergencies").insert(M.emgOut(e)),"긴급 신청이 접수되었습니다.")){ await pull(); render(); }
+    if(await push(function(){ return db.from("emergencies").insert(M.emgOut(e)); },"긴급 신청이 접수되었습니다.")){
+      await pull(); render(); }
   };
-  const setStatus=async(id,status)=>{
-    const e=S.emergencies.find(x=>x.id===id); if(!e) return;
+  var setStatus=async function(id,status){
+    var e=S.emergencies.filter(function(x){return x.id===id;})[0]; if(!e) return;
     e.status=status; e.handledBy=S.user.name;
-    if(await push(()=>db.from("emergencies").upsert(M.emgOut(e)))){ await pull(); render(); }
+    if(await push(function(){ return db.from("emergencies").upsert(M.emgOut(e)); })){ await pull(); render(); }
   };
-  document.querySelectorAll(".eOk").forEach(el=>el.onclick=()=>setStatus(el.dataset.id,"approved"));
-  document.querySelectorAll(".eNo").forEach(el=>el.onclick=()=>setStatus(el.dataset.id,"rejected"));
-  const c=document.getElementById("csvEmg");
-  if(c) c.onclick=()=>exportCSV("긴급신청",["일시","업체","품목","수량","사유구분","상세사유","작업팀","신청자","상태","처리자"],
-    (lv(3)?S.emergencies:S.emergencies.filter(e=>e.company===S.user.company))
-      .map(e=>[fmt(e.ts),e.company,e.itemName,e.qty,e.category,e.note,e.team,e.byName,e.status,e.handledBy]));
+  document.querySelectorAll(".eOk").forEach(function(el){ el.onclick=function(){ setStatus(el.dataset.id,"approved"); }; });
+  document.querySelectorAll(".eNo").forEach(function(el){ el.onclick=function(){ setStatus(el.dataset.id,"rejected"); }; });
+  var c=document.getElementById("csvEmg");
+  if(c) c.onclick=function(){
+    var list=lv(3)?S.emergencies:S.emergencies.filter(function(e){return e.company===S.user.company;});
+    exportCSV("긴급신청",["일시","업체","품목","수량","사유구분","상세사유","작업팀","신청자","상태","처리자"],
+      list.map(function(e){ return [fmt(e.ts),e.company,e.itemName,e.qty,e.category,e.note,e.team,e.byName,e.status,e.handledBy]; })); };
 }
 
-/* ── 신청 수량 ── */
+/* ══════════════════════════════════════════════════════════
+   익월 신청 수량
+   ══════════════════════════════════════════════════════════ */
 function viewReq(){
-  const all=lv(3);
-  const co=all?(S.viewCompany||defaultVendor()):S.user.company;
-  const coOpts=VENDORS.map(c=>`<option value="${esc(c)}" ${c===co?"selected":""}>${esc(c)}</option>`).join("");
-  const d30=Date.now()-30*864e5,d90=Date.now()-90*864e5;
-  const rows=S.items.map(i=>{
-    const c30=S.logs.filter(l=>l.type==="out"&&!l.void&&l.itemId===i.id&&l.company===co&&l.ts>=d30).reduce((s,l)=>s+l.qty,0);
-    const c90=S.logs.filter(l=>l.type==="out"&&!l.void&&l.itemId===i.id&&l.company===co&&l.ts>=d90).reduce((s,l)=>s+l.qty,0);
-    const avg=Math.round(c90/3);
-    const r=S.requests.find(x=>x.id===S.reqMonth+"|"+co+"|"+i.id)||{};
-    const edit=!ro()&&(all||co===S.user.company);
-    return `<tr><td class="kr">${esc(i.name)}</td><td>${nf(i.stock)}</td><td>${nf(c30)}</td>
-      <td style="color:var(--text-mute)">${nf(avg)}</td>
-      <td><input type="number" min="0" class="rq" data-id="${i.id}" value="${r.requestedQty??""}" style="width:88px" ${edit?"":"disabled"} placeholder="${nf(avg)}"></td>
-      ${canWrite(3)?`<td><input type="number" min="0" class="ra" data-id="${i.id}" value="${r.adjustedQty??""}" style="width:88px"></td>
-        <td><input type="text" class="rc" data-id="${i.id}" value="${esc(r.comment||"")}" placeholder="코멘트" style="width:150px"></td>`
-      :`<td>${r.adjustedQty??"-"}</td><td class="kr">${esc(r.comment||"-")}</td>`}</tr>`;
+  var co=curCo();
+  var d30=Date.now()-30*864e5, d90=Date.now()-90*864e5;
+  var list=itemsOf(co);
+  var rows=list.map(function(x){
+    var id=x.item.id;
+    var c30=S.logs.filter(function(l){ return l.type==="out"&&!l.void&&l.itemId===id&&l.company===co&&l.ts>=d30; })
+      .reduce(function(s,l){return s+l.qty;},0);
+    var c90=S.logs.filter(function(l){ return l.type==="out"&&!l.void&&l.itemId===id&&l.company===co&&l.ts>=d90; })
+      .reduce(function(s,l){return s+l.qty;},0);
+    var avg=Math.round(c90/3);
+    var r=S.requests.filter(function(z){ return z.id===S.reqMonth+"|"+co+"|"+id; })[0]||{};
+    return '<tr><td class="kr">'+esc(x.item.name)+'</td><td>'+nf(x.stock.qty)+'</td><td>'+nf(c30)+'</td>'+
+      '<td style="color:var(--text-mute)">'+nf(avg)+'</td>'+
+      '<td><input type="number" min="0" class="rq" data-id="'+id+'" value="'+(r.requestedQty==null?"":r.requestedQty)+
+        '" style="width:88px" placeholder="'+nf(avg)+'"></td>'+
+      (lv(3)
+        ?'<td><input type="number" min="0" class="ra" data-id="'+id+'" value="'+(r.adjustedQty==null?"":r.adjustedQty)+'" style="width:88px"></td>'+
+         '<td><input type="text" class="rc" data-id="'+id+'" value="'+esc(r.comment||"")+'" placeholder="코멘트" style="width:150px"></td>'
+        :'<td>'+(r.adjustedQty==null?"-":nf(r.adjustedQty))+'</td><td class="kr">'+esc(r.comment||"-")+'</td>')+
+      '</tr>';
   }).join("");
-  return `<div class="panel"><div class="panel-head"><div><h2>익월 신청 수량</h2>
-    <div class="sub">실측 소모량을 근거로 신청합니다. 총괄 공구장이 조정 수량과 코멘트를 남깁니다.</div></div>
-    <button class="btn btn-ghost btn-sm" id="csvReq">CSV 내보내기</button></div>
-    <div class="panel-body">
-      <div class="form-row" style="margin-bottom:14px;">
-        <div class="field"><label>신청 월</label><input type="month" id="rMonth" value="${S.reqMonth}"></div>
-        <div class="field"><label>업체</label>${all?`<select id="rCo">${coOpts}</select>`:`<input type="text" value="${esc(co)}" disabled>`}</div></div>
-      <div class="tablewrap"><table><thead><tr><th>품목</th><th>현재고</th><th>최근 30일 소모</th><th>월평균(90일)</th>
-        <th>신청 (업체)</th><th>조정 (총괄)</th><th>코멘트</th></tr></thead>
-        <tbody>${rows||'<tr><td colspan="7" class="empty">품목이 없습니다.</td></tr>'}</tbody></table></div>
-      ${!ro()?`<button class="btn btn-primary" id="rSave" style="margin-top:14px;">저장</button>`:""}
-    </div></div>`;
+
+  return companyBar()+
+  (S.msg.req?'<div class="msg msg-ok">'+esc(S.msg.req)+'</div>':"")+
+  '<div class="panel"><div class="panel-head"><div><h2>익월 신청 수량</h2>'+
+    '<div class="sub">'+esc(co)+' 실측 소모량을 근거로 신청합니다. '+
+    (lv(3)?"조정 수량과 코멘트를 남길 수 있습니다.":"관리자가 조정 수량을 검토합니다.")+'</div></div>'+
+    (canExport()?'<button class="btn btn-ghost btn-sm" id="csvReq">Excel 내보내기</button>':"")+'</div>'+
+    '<div class="panel-body">'+
+      '<div class="form-row" style="margin-bottom:14px;">'+
+        '<div class="field"><label>신청 월</label><input type="month" id="rMonth" value="'+S.reqMonth+'"></div>'+
+        '<div class="field"></div></div>'+
+      '<div class="tablewrap"><table><thead><tr><th>품목</th><th>현 보유량</th><th>최근 30일 소모</th><th>월평균(90일)</th>'+
+        '<th>신청 (업체)</th><th>조정 (관리자)</th><th>코멘트</th></tr></thead>'+
+        '<tbody>'+(rows||'<tr><td colspan="7" class="empty">취급 품목이 없습니다.</td></tr>')+'</tbody></table></div>'+
+      '<button class="btn btn-primary" id="rSave" style="margin-top:14px;">저장</button>'+
+    '</div></div>';
 }
 
 function bindReq(){
-  const m=document.getElementById("rMonth");
-  if(m) m.onchange=()=>{ S.reqMonth=m.value||nextMonth(); render(); };
-  const c=document.getElementById("rCo");
-  if(c) c.onchange=()=>{ S.viewCompany=c.value; render(); };
-  const b=document.getElementById("rSave");
-  if(b) b.onclick=async()=>{
-    const co=lv(3)?(S.viewCompany||defaultVendor()):S.user.company;
-    const map={};
-    const get=id=>map[id]||(map[id]={id:S.reqMonth+"|"+co+"|"+id,month:S.reqMonth,company:co,itemId:id,
-      itemName:(item(id)||{}).name||"",requestedQty:null,adjustedQty:null,comment:"",
-      updatedBy:S.user.id,updatedAt:Date.now()});
-    document.querySelectorAll(".rq").forEach(i=>{ get(i.dataset.id).requestedQty=i.value===""?null:+i.value; });
-    document.querySelectorAll(".ra").forEach(i=>{ get(i.dataset.id).adjustedQty=i.value===""?null:+i.value; });
-    document.querySelectorAll(".rc").forEach(i=>{ get(i.dataset.id).comment=i.value; });
-    if(await push(()=>db.from("requests").upsert(Object.values(map).map(M.reqOut)),"저장되었습니다.")){ await pull(); render(); }
+  var m=document.getElementById("rMonth");
+  if(m) m.onchange=function(){ S.reqMonth=m.value||nextMonth(); S.msg={}; render(); };
+  var b=document.getElementById("rSave");
+  if(b) b.onclick=async function(){
+    var co=curCo(), map={};
+    var get=function(id){
+      if(!map[id]) map[id]={id:S.reqMonth+"|"+co+"|"+id,month:S.reqMonth,company:co,itemId:id,
+        itemName:(itemById(id)||{}).name||"",requestedQty:null,adjustedQty:null,comment:"",
+        updatedBy:S.user.id,updatedAt:Date.now()};
+      return map[id]; };
+    document.querySelectorAll(".rq").forEach(function(i){ get(i.dataset.id).requestedQty=i.value===""?null:+i.value; });
+    document.querySelectorAll(".ra").forEach(function(i){ get(i.dataset.id).adjustedQty=i.value===""?null:+i.value; });
+    document.querySelectorAll(".rc").forEach(function(i){ get(i.dataset.id).comment=i.value; });
+    var rows=Object.keys(map).map(function(k){ return M.reqOut(map[k]); });
+    if(!rows.length) return;
+    if(await push(function(){ return db.from("requests").upsert(rows); },"저장되었습니다.")){
+      S.msg.req="저장되었습니다."; await pull(); render(); }
   };
-  const x=document.getElementById("csvReq");
-  if(x) x.onclick=()=>{
-    const co=lv(3)?(S.viewCompany||defaultVendor()):S.user.company;
-    exportCSV(`신청수량_${S.reqMonth}_${co}`,["품목","현재고","신청수량","조정수량","코멘트"],
-      S.items.map(i=>{ const r=S.requests.find(z=>z.id===S.reqMonth+"|"+co+"|"+i.id)||{};
-        return [i.name,i.stock,r.requestedQty??"",r.adjustedQty??"",r.comment||""]; }));
-  };
+  var x=document.getElementById("csvReq");
+  if(x) x.onclick=function(){
+    var co=curCo();
+    exportCSV("익월신청_"+S.reqMonth+"_"+co,["업체","품목","현보유량","신청수량","조정수량","코멘트"],
+      itemsOf(co).map(function(v){
+        var r=S.requests.filter(function(z){return z.id===S.reqMonth+"|"+co+"|"+v.item.id;})[0]||{};
+        return [co,v.item.name,v.stock.qty,r.requestedQty==null?"":r.requestedQty,
+          r.adjustedQty==null?"":r.adjustedQty,r.comment||""]; })); };
 }
 
-/* ── 로그 ── */
+/* ══════════════════════════════════════════════════════════
+   로그 조회
+   ══════════════════════════════════════════════════════════ */
 function viewLogs(){
-  const f=S.logFilter,scope=scopeCompany();
-  let rows=S.logs.filter(l=>!scope||l.company===scope);
-  if(f.company) rows=rows.filter(l=>l.company===f.company);
-  if(f.item) rows=rows.filter(l=>l.itemId===f.item);
-  if(f.type) rows=rows.filter(l=>l.type===f.type);
-  if(f.team) rows=rows.filter(l=>(l.team||"").toLowerCase().includes(f.team.toLowerCase()));
-  if(f.from) rows=rows.filter(l=>l.ts>=new Date(f.from).getTime());
-  if(f.to) rows=rows.filter(l=>l.ts<=new Date(f.to).getTime()+86399e3);
-  const outQty=rows.filter(l=>l.type==="out"&&!l.void).reduce((s,l)=>s+l.qty,0);
-  const coOpts=`<option value="">전체 업체</option>`+VENDORS.map(c=>`<option value="${esc(c)}" ${f.company===c?"selected":""}>${esc(c)}</option>`).join("");
-  const itOpts=`<option value="">전체 품목</option>`+S.items.map(i=>`<option value="${i.id}" ${f.item===i.id?"selected":""}>${esc(i.name)}</option>`).join("");
-  const tyOpts=`<option value="">전체 구분</option>`+[["out","불출"],["in","입고"],["ret","반납"],["adj","실사조정"],["cancel","정정취소"]]
-    .map(t=>`<option value="${t[0]}" ${f.type===t[0]?"selected":""}>${t[1]}</option>`).join("");
-  const byCo={}; rows.filter(l=>l.type==="out"&&!l.void).forEach(l=>byCo[l.company]=(byCo[l.company]||0)+l.qty);
-  const sum=Object.entries(byCo).sort((a,b)=>b[1]-a[1])
-    .map(([c,q])=>`<span class="tag t-grey" style="margin-right:6px;">${esc(c)} ${nf(q)}</span>`).join("");
-  return `<div class="panel"><div class="panel-head"><div><h2>${lv(3)?"전체 입출고 로그":"우리 업체 로그"}</h2>
-    <div class="sub">${nf(rows.length)}건 · 불출 합계 ${nf(outQty)} · 로그는 삭제되지 않으며 정정 시 이력이 함께 남습니다</div></div>
-    <button class="btn btn-ghost btn-sm" id="csvLog">CSV 내보내기</button></div>
-    <div class="panel-body">
-      <div class="filters">
-        ${lv(3)?`<select id="f_company">${coOpts}</select>`:""}
-        <select id="f_item">${itOpts}</select><select id="f_type">${tyOpts}</select>
-        <input type="text" id="f_team" placeholder="작업팀 검색" value="${esc(f.team)}">
-        <input type="date" id="f_from" value="${f.from}"><input type="date" id="f_to" value="${f.to}">
-        <button class="btn btn-ghost btn-sm" id="f_reset">초기화</button></div>
-      ${sum?`<div style="margin-bottom:12px;">${sum}</div>`:""}
-      <div class="tablewrap"><table><thead><tr><th>일시</th><th>구분</th><th>업체</th><th>품목</th><th>수량</th>
-        <th>담당자</th><th>작업팀</th><th>등록자</th>${canWrite(3)?"<th>정정</th>":""}</tr></thead>
-        <tbody>${rows.slice(0,400).map(l=>`<tr style="${l.void?'opacity:.45;':''}">
-          <td>${fmt(l.ts,true)}</td><td>${TYPE_TAG[l.type]||""}</td><td class="kr">${esc(l.company||"-")}</td>
-          <td class="kr">${esc(l.itemName)}</td><td>${l.type==="out"?"-":"+"}${nf(l.qty)}</td>
-          <td class="kr">${esc(l.taker||"-")}</td><td class="kr">${esc(l.team||"-")}</td>
-          <td class="kr" style="color:var(--text-mute)">${esc(l.byName||"")}</td>
-          ${canWrite(3)?`<td>${(l.void||l.type==="cancel")?'-':`<button class="btn btn-danger btn-sm lvoid" data-id="${l.id}">정정</button>`}</td>`:""}
-        </tr>`).join("")||`<tr><td colspan="9" class="empty">조건에 맞는 로그가 없습니다.</td></tr>`}</tbody></table></div>
-      ${rows.length>400?`<div class="hint">화면에는 400건만 표시됩니다. 전체는 CSV로 내보내세요.</div>`:""}
-    </div></div>`;
+  var f=S.logFilter;
+  var scope = lv(3) ? null : S.user.company;
+  var co = lv(3) ? curCo() : S.user.company;
+  var rows=S.logs.filter(function(l){ return l.company===co; });
+  if(f.item) rows=rows.filter(function(l){ return l.itemId===f.item; });
+  if(f.type) rows=rows.filter(function(l){ return l.type===f.type; });
+  if(f.team) rows=rows.filter(function(l){ return (l.team||"").toLowerCase().indexOf(f.team.toLowerCase())>=0; });
+  if(f.from) rows=rows.filter(function(l){ return l.ts>=new Date(f.from).getTime(); });
+  if(f.to) rows=rows.filter(function(l){ return l.ts<=new Date(f.to).getTime()+86399e3; });
+  var outQty=rows.filter(function(l){ return l.type==="out"&&!l.void; }).reduce(function(s,l){return s+l.qty;},0);
+
+  var itOpts='<option value="">전체 품목</option>'+itemsOf(co).map(function(x){
+    return '<option value="'+x.item.id+'" '+(f.item===x.item.id?"selected":"")+'>'+esc(x.item.name)+'</option>'; }).join("");
+  var tyOpts='<option value="">전체 구분</option>'+
+    [["out","불출"],["in","입고"],["ret","반납"],["adj","실사조정"],["cancel","정정취소"]].map(function(t){
+      return '<option value="'+t[0]+'" '+(f.type===t[0]?"selected":"")+'>'+t[1]+'</option>'; }).join("");
+
+  var byItem={};
+  rows.filter(function(l){ return l.type==="out"&&!l.void; }).forEach(function(l){
+    byItem[l.itemName]=(byItem[l.itemName]||0)+l.qty; });
+  var top=Object.keys(byItem).map(function(k){ return [k,byItem[k]]; })
+    .sort(function(a,b){ return b[1]-a[1]; }).slice(0,6)
+    .map(function(p){ return '<span class="tag t-grey" style="margin-right:6px;">'+esc(p[0])+' '+nf(p[1])+'</span>'; }).join("");
+
+  return companyBar()+
+  '<div class="panel"><div class="panel-head"><div><h2>'+esc(co)+' 입출고 로그</h2>'+
+    '<div class="sub">'+nf(rows.length)+'건 · 불출 합계 '+nf(outQty)+' · 로그는 삭제되지 않으며 정정 시 이력이 함께 남습니다</div></div>'+
+    (canExport()?'<button class="btn btn-ghost btn-sm" id="csvLog">Excel 내보내기</button>':"")+'</div>'+
+    '<div class="panel-body">'+
+      '<div class="filters">'+
+        '<select id="f_item">'+itOpts+'</select><select id="f_type">'+tyOpts+'</select>'+
+        '<input type="text" id="f_team" placeholder="작업팀 검색" value="'+esc(f.team)+'">'+
+        '<input type="date" id="f_from" value="'+f.from+'"><input type="date" id="f_to" value="'+f.to+'">'+
+        '<button class="btn btn-ghost btn-sm" id="f_reset">초기화</button></div>'+
+      (top?'<div style="margin-bottom:12px;">'+top+'</div>':"")+
+      '<div class="tablewrap"><table><thead><tr><th>일시</th><th>구분</th><th>품목</th><th>수량</th>'+
+        '<th>담당자</th><th>작업팀</th><th>등록자</th>'+(lv(3)?"<th>정정</th>":"")+'</tr></thead><tbody>'+
+        (rows.slice(0,400).map(function(l){ return '<tr style="'+(l.void?"opacity:.45;":"")+'">'+
+          '<td>'+fmt(l.ts,true)+'</td><td>'+(TYPE_TAG[l.type]||"")+'</td>'+
+          '<td class="kr">'+esc(l.itemName)+'</td><td>'+(l.type==="out"?"-":"+")+nf(l.qty)+'</td>'+
+          '<td class="kr">'+esc(l.taker||"-")+'</td><td class="kr">'+esc(l.team||"-")+'</td>'+
+          '<td class="kr" style="color:var(--text-mute)">'+esc(l.byName||"")+'</td>'+
+          (lv(3)?'<td>'+((l.void||l.type==="cancel")?"-":
+            '<button class="btn btn-danger btn-sm lvoid" data-id="'+l.id+'">정정</button>')+'</td>':"")+
+          '</tr>'; }).join("")||'<tr><td colspan="8" class="empty">조건에 맞는 로그가 없습니다.</td></tr>')+
+      '</tbody></table></div>'+
+      (rows.length>400?'<div class="hint">화면에는 400건만 표시됩니다. 전체는 Excel로 내보내세요.</div>':"")+
+    '</div></div>';
 }
 
 function bindLogs(){
-  const map={f_company:"company",f_item:"item",f_type:"type",f_team:"team",f_from:"from",f_to:"to"};
-  Object.keys(map).forEach(id=>{ const el=document.getElementById(id);
-    if(el) el.onchange=()=>{ S.logFilter[map[id]]=el.value; render(); }; });
-  const t=document.getElementById("f_team");
-  if(t) t.oninput=()=>{ S.logFilter.team=t.value; const p=t.selectionStart; render();
-    const n=document.getElementById("f_team"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
-  const r=document.getElementById("f_reset");
-  if(r) r.onclick=()=>{ S.logFilter={company:"",item:"",team:"",type:"",from:"",to:""}; render(); };
-  document.querySelectorAll(".lvoid").forEach(el=>el.onclick=async()=>{
-    const l=S.logs.find(x=>x.id===el.dataset.id); if(!l) return;
-    const reason=prompt("정정 사유를 입력하세요. 원본은 삭제되지 않고 취소 이력이 함께 남습니다.");
+  var map={f_item:"item",f_type:"type",f_from:"from",f_to:"to"};
+  Object.keys(map).forEach(function(id){ var el=document.getElementById(id);
+    if(el) el.onchange=function(){ S.logFilter[map[id]]=el.value; render(); }; });
+  var t=document.getElementById("f_team");
+  if(t) t.oninput=function(){ S.logFilter.team=t.value; var p=t.selectionStart; render();
+    var n=document.getElementById("f_team"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
+  var r=document.getElementById("f_reset");
+  if(r) r.onclick=function(){ S.logFilter={item:"",team:"",type:"",from:"",to:""}; render(); };
+
+  document.querySelectorAll(".lvoid").forEach(function(el){ el.onclick=async function(){
+    var l=S.logs.filter(function(x){return x.id===el.dataset.id;})[0]; if(!l) return;
+    var reason=prompt("정정 사유를 입력하세요. 원본은 삭제되지 않고 취소 이력이 함께 남습니다.");
     if(reason===null||!reason.trim()) return;
-    const delta=l.type==="out"?l.qty:-l.qty;
-    const cancel={id:uid(),ts:Date.now(),type:"cancel",company:l.company,itemId:l.itemId,itemName:l.itemName,
+    var delta=(l.type==="out"? l.qty : -l.qty);
+    var cancel={id:uid(),ts:Date.now(),type:"cancel",company:l.company,itemId:l.itemId,itemName:l.itemName,
       unit:l.unit,qty:l.qty,taker:l.taker,team:"정정: "+reason.trim(),by:S.user.id,byName:S.user.name,refId:l.id};
-    if(!await push(()=>db.rpc("apply_movement",{p_log:M.logOut(cancel),p_item_id:l.itemId,p_delta:delta}))) return;
-    await push(()=>db.from("logs").update({void:true,void_reason:reason.trim(),
-      void_by:S.user.name,void_at:Date.now()}).eq("id",l.id),"정정 처리되었습니다.");
+    if(!await push(function(){ return db.rpc("apply_stock_movement",
+      {p_log:M.logOut(cancel),p_company:l.company,p_item_id:l.itemId,p_delta:delta}); })) return;
+    await push(function(){ return db.from("logs").update({void:true,void_reason:reason.trim(),
+      void_by:S.user.name,void_at:Date.now()}).eq("id",l.id); },"정정 처리되었습니다.");
     await pull(); render();
-  });
-  const c=document.getElementById("csvLog");
-  if(c) c.onclick=()=>{ const scope=scopeCompany();
-    exportCSV("입출고로그",["일시","구분","업체","품목","수량","담당자","작업팀","등록자","무효여부","정정사유"],
-      S.logs.filter(l=>!scope||l.company===scope).map(l=>[fmt(l.ts),
-        ({out:"불출",in:"입고",ret:"반납",adj:"실사조정",cancel:"정정취소"})[l.type]||l.type,
-        l.company||"",l.itemName,(l.type==="out"?-l.qty:l.qty),l.taker||"",l.team||"",l.byName||"",
-        l.void?"무효":"",l.voidReason||""])); };
+  }; });
+
+  var c=document.getElementById("csvLog");
+  if(c) c.onclick=function(){
+    var co=lv(3)?curCo():S.user.company;
+    exportCSV("입출고로그_"+co,["일시","구분","업체","품목","수량","담당자","작업팀","등록자","무효여부","정정사유"],
+      S.logs.filter(function(l){ return l.company===co; }).map(function(l){
+        return [fmt(l.ts),TYPE_KR[l.type]||l.type,l.company,l.itemName,
+          (l.type==="out"?-l.qty:l.qty),l.taker||"",l.team||"",l.byName||"",
+          l.void?"무효":"",l.voidReason||""]; })); };
 }
 
-/* ── 실사 ── */
+/* ══════════════════════════════════════════════════════════
+   재고 실사 (업체별)
+   ══════════════════════════════════════════════════════════ */
 function viewStk(){
-  const hist=S.stocktakes.slice(0,12);
-  return `
-  <div class="msg msg-info">월 1회 실물 재고를 세어 입력하세요. 시스템 재고와의 <b>차이가 곧 미등록 불출량</b>이며, 이 수치가 앱 준수율 지표가 됩니다. 차이를 숨기지 말고 그대로 입력하는 것이 중요합니다.</div>
-  ${canWrite(2)?`<div class="panel"><div class="panel-head"><div><h2>실사 입력</h2>
-    <div class="sub">실물 수량만 입력하면 차이가 자동 계산되고 재고가 보정됩니다.</div></div></div>
-    <div class="panel-body">
-      <div class="tablewrap"><table><thead><tr><th>품목</th><th>시스템 재고</th><th>실물 수량</th><th>차이</th></tr></thead>
-        <tbody>${S.items.map(i=>`<tr><td class="kr">${esc(i.name)}</td><td>${nf(i.stock)} ${esc(i.unit)}</td>
-          <td><input type="number" class="sk" data-id="${i.id}" style="width:100px" placeholder="미입력 시 제외"></td>
-          <td class="skdiff" data-id="${i.id}" style="color:var(--text-mute)">-</td></tr>`).join("")}</tbody></table></div>
-      <div class="field" style="margin-top:14px;max-width:420px;"><label>실사 메모</label>
-        <input type="text" id="skNote" placeholder="예: 8월 정기 실사 / 입회: 총괄 공구장"></div>
-      <button class="btn btn-primary" id="skSave">실사 확정 및 재고 보정</button>
-    </div></div>`:""}
-  <div class="panel"><div class="panel-head"><div><h2>실사 이력</h2>
-    <div class="sub">차이 누계 추이로 앱 정착도를 확인합니다</div></div>
-    <button class="btn btn-ghost btn-sm" id="csvStk">CSV 내보내기</button></div>
-    <div class="tablewrap"><table><thead><tr><th>일시</th><th>실사자</th><th>점검 품목</th><th>차이 발생</th><th>총 차이량</th><th>메모</th></tr></thead>
-      <tbody>${hist.map(s=>`<tr><td>${fmt(s.ts,true)}</td><td class="kr">${esc(s.byName)}</td>
-        <td>${s.lines.length}종</td><td>${s.lines.filter(l=>l.diff!==0).length}종</td>
-        <td style="color:${s.total<0?'var(--danger)':'inherit'}">${s.total>0?"+":""}${nf(s.total)}</td>
-        <td class="kr">${esc(s.note||"-")}</td></tr>`).join("")||'<tr><td colspan="6" class="empty">실사 이력이 없습니다.</td></tr>'}</tbody></table></div></div>`;
+  var co=curCo();
+  var list=itemsOf(co);
+  var hist=S.stocktakes.filter(function(s){ return !s.company || s.company===co; }).slice(0,12);
+  return companyBar()+
+  (S.msg.stk?'<div class="msg msg-ok">'+esc(S.msg.stk)+'</div>':"")+
+  '<div class="msg msg-info">월 1회 실물 재고를 세어 입력하세요. 시스템 재고와의 <b>차이가 곧 미등록 불출량</b>이며, 이 수치가 앱 준수율 지표가 됩니다. 차이를 숨기지 말고 그대로 입력하는 것이 중요합니다.</div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>'+esc(co)+' 실사 입력</h2>'+
+    '<div class="sub">실물 수량만 입력하면 차이가 자동 계산되고 보유량이 보정됩니다.</div></div></div>'+
+    '<div class="panel-body">'+
+      '<div class="tablewrap"><table><thead><tr><th>품목</th><th>시스템 보유량</th><th>실물 수량</th><th>차이</th></tr></thead><tbody>'+
+      (list.map(function(x){ return '<tr><td class="kr">'+esc(x.item.name)+'</td>'+
+        '<td>'+nf(x.stock.qty)+' '+esc(x.item.unit)+'</td>'+
+        '<td><input type="number" class="sk" data-id="'+x.item.id+'" style="width:100px" placeholder="미입력 시 제외"></td>'+
+        '<td class="skdiff" data-id="'+x.item.id+'" style="color:var(--text-mute)">-</td></tr>'; }).join("")
+        ||'<tr><td colspan="4" class="empty">취급 품목이 없습니다.</td></tr>')+
+      '</tbody></table></div>'+
+      '<div class="field" style="margin-top:14px;max-width:420px;"><label>실사 메모</label>'+
+        '<input type="text" id="skNote" placeholder="예: 8월 정기 실사 / 입회: 총괄 공구장"></div>'+
+      '<button class="btn btn-primary" id="skSave">실사 확정 및 보유량 보정</button>'+
+    '</div></div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>실사 이력</h2>'+
+    '<div class="sub">차이 누계 추이로 앱 정착도를 확인합니다</div></div>'+
+    (canExport()?'<button class="btn btn-ghost btn-sm" id="csvStk">Excel 내보내기</button>':"")+'</div>'+
+    '<div class="tablewrap"><table><thead><tr><th>일시</th><th>업체</th><th>실사자</th><th>점검</th><th>차이 발생</th><th>총 차이량</th><th>메모</th></tr></thead><tbody>'+
+    (hist.map(function(s){ return '<tr><td>'+fmt(s.ts,true)+'</td><td class="kr">'+esc(s.company||"-")+'</td>'+
+      '<td class="kr">'+esc(s.byName)+'</td><td>'+s.lines.length+'종</td>'+
+      '<td>'+s.lines.filter(function(l){return l.diff!==0;}).length+'종</td>'+
+      '<td style="color:'+(s.total<0?"var(--danger)":"inherit")+'">'+(s.total>0?"+":"")+nf(s.total)+'</td>'+
+      '<td class="kr">'+esc(s.note||"-")+'</td></tr>'; }).join("")
+      ||'<tr><td colspan="7" class="empty">실사 이력이 없습니다.</td></tr>')+
+    '</tbody></table></div></div>';
 }
 
 function bindStk(){
-  document.querySelectorAll(".sk").forEach(el=>el.oninput=()=>{
-    const it=item(el.dataset.id);
-    const cell=document.querySelector(`.skdiff[data-id="${el.dataset.id}"]`);
+  var co=curCo();
+  document.querySelectorAll(".sk").forEach(function(el){ el.oninput=function(){
+    var st=stockOf(co,el.dataset.id);
+    var cell=document.querySelector('.skdiff[data-id="'+el.dataset.id+'"]');
     if(el.value===""){ cell.textContent="-"; cell.style.color="var(--text-mute)"; return; }
-    const d=(parseInt(el.value,10)||0)-it.stock;
+    var d=(parseInt(el.value,10)||0)-st.qty;
     cell.textContent=(d>0?"+":"")+nf(d);
-    cell.style.color=d<0?"var(--danger)":d>0?"var(--info)":"var(--ok)"; });
-  const b=document.getElementById("skSave");
-  if(b) b.onclick=async()=>{
-    const lines=[];
-    document.querySelectorAll(".sk").forEach(el=>{
+    cell.style.color=d<0?"var(--danger)":d>0?"var(--info)":"var(--ok)"; }; });
+
+  var b=document.getElementById("skSave");
+  if(b) b.onclick=async function(){
+    var lines=[];
+    document.querySelectorAll(".sk").forEach(function(el){
       if(el.value==="") return;
-      const it=item(el.dataset.id),real=parseInt(el.value,10)||0;
-      lines.push({itemId:it.id,itemName:it.name,system:it.stock,real,diff:real-it.stock,unit:it.unit}); });
+      var it=itemById(el.dataset.id), st=stockOf(co,el.dataset.id);
+      var real=parseInt(el.value,10)||0;
+      lines.push({itemId:it.id,itemName:it.name,system:st.qty,real:real,diff:real-st.qty,unit:it.unit});
+    });
     if(!lines.length){ alert("실물 수량을 하나 이상 입력하세요."); return; }
-    if(!confirm(`${lines.length}개 품목의 재고를 실사값으로 보정합니다. 진행할까요?`)) return;
+    if(!confirm(co+"의 "+lines.length+"개 품목 보유량을 실사값으로 보정합니다. 진행할까요?")) return;
     b.disabled=true; b.textContent="처리 중…";
-    const note=document.getElementById("skNote").value.trim();
-    for(const l of lines){
-      await push(()=>db.from("items").update({stock:l.real}).eq("id",l.itemId));
+    var note=document.getElementById("skNote").value.trim();
+    for(var i=0;i<lines.length;i++){
+      var l=lines[i];
       if(l.diff!==0){
-        const lg={id:uid(),ts:Date.now(),type:"adj",company:"-",itemId:l.itemId,itemName:l.itemName,
-          unit:l.unit,qty:Math.abs(l.diff),taker:S.user.name,team:`실사보정 ${l.diff>0?"+":""}${l.diff}`,
-          by:S.user.id,byName:S.user.name};
-        await push(()=>db.from("logs").insert(M.logOut(lg)));
+        var lg={id:uid(),ts:Date.now(),type:"adj",company:co,itemId:l.itemId,itemName:l.itemName,
+          unit:l.unit,qty:Math.abs(l.diff),taker:S.user.name,
+          team:"실사보정 "+(l.diff>0?"+":"")+l.diff,by:S.user.id,byName:S.user.name};
+        await push((function(lg,l){ return function(){ return db.rpc("apply_stock_movement",
+          {p_log:M.logOut(lg),p_company:co,p_item_id:l.itemId,p_delta:l.diff}); }; })(lg,l));
       }
     }
-    await push(()=>db.from("stocktakes").insert(M.stkOut({id:uid(),ts:Date.now(),by:S.user.id,
-      byName:S.user.name,note,lines,total:lines.reduce((s,l)=>s+l.diff,0)})),"실사가 확정되었습니다.");
+    await push(function(){ return db.from("stocktakes").insert(M.stkOut({id:uid(),ts:Date.now(),
+      company:co,by:S.user.id,byName:S.user.name,note:note,lines:lines,
+      total:lines.reduce(function(s,l){return s+l.diff;},0)})); },"실사가 확정되었습니다.");
+    S.msg.stk="실사가 확정되고 보유량이 보정되었습니다.";
     await pull(); render();
   };
-  const c=document.getElementById("csvStk");
-  if(c) c.onclick=()=>{ const rows=[];
-    S.stocktakes.forEach(s=>s.lines.forEach(l=>rows.push([fmt(s.ts),s.byName,l.itemName,l.system,l.real,l.diff,s.note||""])));
-    exportCSV("재고실사",["일시","실사자","품목","시스템재고","실물수량","차이","메모"],rows); };
+
+  var c=document.getElementById("csvStk");
+  if(c) c.onclick=function(){ var rows=[];
+    S.stocktakes.forEach(function(s){ s.lines.forEach(function(l){
+      rows.push([fmt(s.ts),s.company||"",s.byName,l.itemName,l.system,l.real,l.diff,s.note||""]); }); });
+    exportCSV("재고실사",["일시","업체","실사자","품목","시스템재고","실물수량","차이","메모"],rows); };
 }
 
-/* ── 사용자 관리 ── */
-function viewUsers(){
-  const all=lv(3);
-  const pend=S.users.filter(u=>u.status==="pending"&&(all||(u.company===S.user.company&&u.level===1)));
-  const appr=S.users.filter(u=>u.status!=="pending"&&(all||u.company===S.user.company));
-  const maxLv=lv(4)?4:lv(3)?3:1;
-  const lvOpts=sel=>[1,2,3,4].filter(n=>n<=maxLv)
-    .map(n=>`<option value="${n}" ${n===sel?"selected":""}>LV.${n} · ${LEVEL_NAME[n]}</option>`).join("");
-  return `
-  <div class="msg msg-info">${all?"Lv.1 수령자 승인은 각 업체 공구장에게 위임되어 있습니다. 총괄 공구장은 Lv.2 이상 권한과 전체 계정을 관리합니다."
-    :"소속 업체의 수령자(Lv.1) 계정만 승인·관리할 수 있습니다."}</div>
-  <div class="panel"><div class="panel-head"><div><h2>승인 대기</h2><div class="sub">${pend.length}건</div></div></div>
-    <div class="tablewrap"><table><thead><tr><th>아이디</th><th>이름</th><th>업체</th><th>신청일</th>${canWrite(2)?"<th>처리</th>":""}</tr></thead>
-      <tbody>${pend.map(u=>`<tr><td><span class="idtag">${esc(u.id)}</span></td><td class="kr">${esc(u.name)}</td>
-        <td class="kr">${esc(u.company)}</td><td>${fmt(u.createdAt,true)}</td>
-        ${canWrite(2)?`<td><select class="apLv" data-id="${esc(u.id)}" style="width:auto;display:inline-block;">${lvOpts(1)}</select>
-          <button class="btn btn-primary btn-sm apOk" data-id="${esc(u.id)}">승인</button>
-          <button class="btn btn-danger btn-sm apNo" data-id="${esc(u.id)}">거절</button></td>`:""}
-      </tr>`).join("")||`<tr><td colspan="5" class="empty">대기중인 신청이 없습니다.</td></tr>`}</tbody></table></div></div>
-  <div class="panel"><div class="panel-head"><div><h2>등록 사용자</h2>
-    <div class="sub">${appr.length}명 · 90일 이상 미접속 계정은 회색으로 표시됩니다</div></div></div>
-    <div class="tablewrap"><table><thead><tr><th>아이디</th><th>이름</th><th>업체</th><th>권한</th><th>열람전용</th>
-      <th>최근 접속</th><th>상태</th>${canWrite(2)?"<th></th>":""}</tr></thead>
-      <tbody>${appr.map(u=>{
-        const stale=u.lastLogin&&(Date.now()-u.lastLogin>90*864e5);
-        const self=u.id===S.user.id;
-        const ed=canWrite(2)&&!self&&(lv(4)||(lv(3)&&u.level<4)||(lv(2)&&u.level===1&&u.company===S.user.company));
-        return `<tr style="${stale?'color:#8b99a5;':''}">
-        <td><span class="idtag">${esc(u.id)}</span></td><td class="kr">${esc(u.name)}</td><td class="kr">${esc(u.company)}</td>
-        <td>${ed?`<select class="chLv" data-id="${esc(u.id)}" style="width:auto;">${lvOpts(u.level)}</select>`:`LV.${u.level}`}</td>
-        <td>${ed&&lv(3)?`<input type="checkbox" class="chRo" data-id="${esc(u.id)}" ${u.readOnly?"checked":""} style="width:auto;">`:(u.readOnly?"예":"-")}</td>
-        <td>${u.lastLogin?fmt(u.lastLogin,true):"미접속"}</td>
-        <td>${u.status==="suspended"?'<span class="tag t-grey">정지</span>':'<span class="tag t-ok">사용</span>'}</td>
-        ${canWrite(2)?`<td>${ed?(u.status==="suspended"
-          ?`<button class="btn btn-ghost btn-sm uRe" data-id="${esc(u.id)}">복구</button>`
-          :`<button class="btn btn-ghost btn-sm uSp" data-id="${esc(u.id)}">정지</button>`)
-          +` <button class="btn btn-ghost btn-sm uPw" data-id="${esc(u.id)}">PW초기화</button>`:""}</td>`:""}
-      </tr>`;}).join("")||`<tr><td colspan="8" class="empty">사용자가 없습니다.</td></tr>`}</tbody></table></div></div>`;
+/* ══════════════════════════════════════════════════════════
+   업체 취급 품목 관리 (Lv.2 이상)
+   ══════════════════════════════════════════════════════════ */
+function viewColist(){
+  var co=curCo();
+  var have={}; S.stocks.filter(function(s){return s.company===co;}).forEach(function(s){ have[s.itemId]=s; });
+  var registered=itemsOf(co);
+  var avail=S.items.filter(function(i){ return !have[i.id]; });
+
+  return companyBar()+
+  (S.msg.col?'<div class="msg msg-ok">'+esc(S.msg.col)+'</div>':"")+
+  '<div class="msg msg-info">업체마다 보관하는 품목이 다릅니다. 이 업체가 실제로 보관·불출하는 품목만 등록하세요. 등록된 품목만 불출 화면에 표시됩니다.</div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>'+esc(co)+' 취급 품목</h2>'+
+    '<div class="sub">'+registered.length+'종 · 최소재고를 지정하면 부족 경고가 표시됩니다</div></div></div>'+
+    '<div class="panel-body"><div class="tablewrap"><table><thead><tr><th>품목</th><th>단위</th>'+
+      '<th>보유량</th><th>최소재고</th><th></th></tr></thead><tbody>'+
+      (registered.map(function(x){ return '<tr>'+
+        '<td class="kr">'+esc(x.item.name)+'</td><td>'+esc(x.item.unit)+'</td>'+
+        '<td><input type="number" class="cQty" data-id="'+x.item.id+'" value="'+x.stock.qty+'" style="width:100px"></td>'+
+        '<td><input type="number" class="cMin" data-id="'+x.item.id+'" value="'+x.stock.minQty+'" style="width:100px"></td>'+
+        '<td><button class="btn btn-ghost btn-sm cSave" data-id="'+x.item.id+'">저장</button> '+
+            '<button class="btn btn-danger btn-sm cDel" data-id="'+x.item.id+'">제외</button></td></tr>'; }).join("")
+        ||'<tr><td colspan="5" class="empty">등록된 취급 품목이 없습니다. 아래에서 추가하세요.</td></tr>')+
+    '</tbody></table></div></div></div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>품목 추가</h2>'+
+    '<div class="sub">품목 마스터에서 이 업체가 보관하는 품목을 선택하세요 (복수 선택 가능)</div></div></div>'+
+    '<div class="panel-body">'+
+      (avail.length?'<div class="chkgrid">'+avail.map(function(i){
+        return '<label class="chk"><input type="checkbox" class="addChk" value="'+i.id+'"> '+
+          '<span style="font-size:13px;">'+esc(i.name)+' <span style="color:var(--text-mute);font-family:IBM Plex Mono;font-size:11.5px;">('+esc(i.unit)+')</span></span></label>'; }).join("")+'</div>'+
+        '<button class="btn btn-primary" id="addSel" style="margin-top:14px;">선택 품목 등록</button>'
+        :'<div class="empty">품목 마스터의 모든 품목이 이미 등록되어 있습니다.</div>')+
+    '</div></div>';
 }
 
-function bindUsers(){
-  const U=id=>S.users.find(u=>u.id===id);
-  const saveU=async u=>{ if(await push(()=>db.from("users").upsert(M.userOut(u)),"저장되었습니다.")){ await pull(); render(); } };
-  document.querySelectorAll(".apOk").forEach(el=>el.onclick=()=>{
-    const u=U(el.dataset.id);
-    u.status="approved"; u.level=+document.querySelector(`.apLv[data-id="${CSS.escape(el.dataset.id)}"]`).value;
-    saveU(u); });
-  document.querySelectorAll(".apNo").forEach(el=>el.onclick=async()=>{
-    if(!confirm("가입 신청을 거절하고 삭제합니다.")) return;
-    if(await push(()=>db.from("users").delete().eq("id",el.dataset.id),"삭제되었습니다.")){ await pull(); render(); } });
-  document.querySelectorAll(".chLv").forEach(el=>el.onchange=()=>{ const u=U(el.dataset.id); u.level=+el.value; saveU(u); });
-  document.querySelectorAll(".chRo").forEach(el=>el.onchange=()=>{ const u=U(el.dataset.id); u.readOnly=el.checked; saveU(u); });
-  document.querySelectorAll(".uSp").forEach(el=>el.onclick=()=>{ const u=U(el.dataset.id); u.status="suspended"; saveU(u); });
-  document.querySelectorAll(".uRe").forEach(el=>el.onclick=()=>{ const u=U(el.dataset.id); u.status="approved"; saveU(u); });
-  document.querySelectorAll(".uPw").forEach(el=>el.onclick=()=>{ const u=U(el.dataset.id);
-    if(!confirm(`${u.name} 계정 비밀번호를 이름("${u.name}")으로 초기화합니다.`)) return;
-    u.pass=u.name; u.pwChanged=false; saveU(u); });
-}
-
-/* ── 입고 ── */
-function viewIn(){
-  const opts=S.items.map(i=>`<option value="${i.id}">${esc(i.name)} (현재 ${nf(i.stock)}${esc(i.unit)})</option>`).join("");
-  const recent=S.logs.filter(l=>l.type==="in").slice(0,15);
-  return `<div class="panel"><div class="panel-head"><div><h2>입고 등록</h2>
-    <div class="sub">실제 입고 수량을 등록하면 재고에 즉시 반영됩니다.</div></div></div>
-    <div class="panel-body"><div class="form-row" style="margin-bottom:12px;">
-      <div class="field"><label>품목</label><select id="i_item">${opts}</select></div>
-      <div class="field"><label>입고 수량</label><input type="number" id="i_qty" min="1" placeholder="0"></div>
-      <div class="field"><label>비고</label><input type="text" id="i_note" placeholder="예: 8월 정기 입고"></div></div>
-      <button class="btn btn-primary" id="i_save">입고 등록</button></div></div>
-  <div class="panel"><div class="panel-head"><div><h2>최근 입고</h2></div></div>
-    <div class="tablewrap"><table><thead><tr><th>일시</th><th>품목</th><th>수량</th><th>등록자</th><th>비고</th></tr></thead>
-      <tbody>${recent.map(l=>`<tr><td>${fmt(l.ts,true)}</td><td class="kr">${esc(l.itemName)}</td>
-        <td>+${nf(l.qty)}</td><td class="kr">${esc(l.byName)}</td><td class="kr">${esc(l.team||"-")}</td></tr>`).join("")
-        ||'<tr><td colspan="5" class="empty">입고 이력이 없습니다.</td></tr>'}</tbody></table></div></div>`;
-}
-
-function bindIn(){
-  const b=document.getElementById("i_save");
-  if(b) b.onclick=async()=>{
-    const it=item(document.getElementById("i_item").value);
-    const q=parseInt(document.getElementById("i_qty").value,10);
-    if(!it||!q||q<=0){ alert("수량을 확인하세요."); return; }
-    const note=document.getElementById("i_note").value.trim();
-    const lg={id:uid(),ts:Date.now(),type:"in",company:"-",itemId:it.id,itemName:it.name,unit:it.unit,
-      qty:q,taker:S.user.name,team:note||"입고",by:S.user.id,byName:S.user.name};
-    if(await push(()=>db.rpc("apply_movement",{p_log:M.logOut(lg),p_item_id:it.id,p_delta:q}),
-      `${it.name} ${nf(q)}${it.unit} 입고 완료`)){ await pull(); render(); }
+function bindColist(){
+  var co=curCo();
+  document.querySelectorAll(".cSave").forEach(function(el){ el.onclick=async function(){
+    var tr=el.closest("tr");
+    var row={id:stockKey(co,el.dataset.id),company:co,itemId:el.dataset.id,
+      qty:parseInt(tr.querySelector(".cQty").value,10)||0,
+      minQty:parseInt(tr.querySelector(".cMin").value,10)||0};
+    if(await push(function(){ return db.from("stocks").upsert(M.stockOut(row)); },"저장되었습니다.")){
+      await pull(); render(); }
+  }; });
+  document.querySelectorAll(".cDel").forEach(function(el){ el.onclick=async function(){
+    if(!confirm("이 업체의 취급 품목에서 제외합니다. 기존 로그는 유지됩니다.")) return;
+    if(await push(function(){ return db.from("stocks").delete().eq("id",stockKey(co,el.dataset.id)); },"제외되었습니다.")){
+      await pull(); render(); }
+  }; });
+  var a=document.getElementById("addSel");
+  if(a) a.onclick=async function(){
+    var ids=[];
+    document.querySelectorAll(".addChk").forEach(function(c){ if(c.checked) ids.push(c.value); });
+    if(!ids.length){ alert("추가할 품목을 선택하세요."); return; }
+    var rows=ids.map(function(id){ return M.stockOut({id:stockKey(co,id),company:co,itemId:id,qty:0,minQty:0}); });
+    if(await push(function(){ return db.from("stocks").insert(rows); },ids.length+"개 품목이 등록되었습니다.")){
+      S.msg.col=ids.length+"개 품목을 등록했습니다. 보유량과 최소재고를 입력하세요.";
+      await pull(); render(); }
   };
 }
 
-/* ── 품목 마스터 ── */
+/* ══════════════════════════════════════════════════════════
+   권한 관리 (Lv.4 전용)
+   ══════════════════════════════════════════════════════════ */
+function lvChip(n){ return '<span class="lvchip lv'+n+'">Lv.'+n+'</span>'; }
+
+function viewGrant(){
+  var pend=S.users.filter(function(u){ return u.status==="pending"; });
+  var appr=S.users.filter(function(u){ return u.status!=="pending"; });
+  var byLv={1:[],2:[],3:[],4:[]};
+  appr.forEach(function(u){ if(byLv[u.level]) byLv[u.level].push(u); });
+
+  var lvOpts=function(sel){ return [1,2,3,4].map(function(n){
+    return '<option value="'+n+'" '+(n===sel?"selected":"")+'>Lv.'+n+' · '+LEVEL_NAME[n]+'</option>'; }).join(""); };
+
+  var pendRows=pend.map(function(u){
+    return '<tr><td><span class="idtag">'+esc(u.id)+'</span></td>'+
+      '<td class="kr">'+esc(u.name)+'</td><td class="kr">'+esc(u.company)+'</td>'+
+      '<td>'+lvChip(u.reqLevel||1)+' <span style="color:var(--text-mute);font-size:11.5px;">신청</span></td>'+
+      '<td>'+fmt(u.createdAt,true)+'</td>'+
+      '<td><select class="apLv" data-id="'+esc(u.id)+'" style="width:auto;display:inline-block;">'+lvOpts(u.reqLevel||1)+'</select> '+
+        '<button class="btn btn-primary btn-sm apOk" data-id="'+esc(u.id)+'">승인</button> '+
+        '<button class="btn btn-danger btn-sm apNo" data-id="'+esc(u.id)+'">거절</button></td></tr>';
+  }).join("");
+
+  var lvCards=[4,3,2,1].map(function(n){
+    var us=byLv[n];
+    return '<div class="panel"><div class="panel-head"><div><h2>'+lvChip(n)+' '+LEVEL_NAME[n]+'</h2>'+
+      '<div class="sub">'+LEVEL_DESC[n]+' · '+us.length+'명</div></div></div>'+
+      '<div class="tablewrap"><table><thead><tr><th>사번(아이디)</th><th>이름</th><th>소속</th>'+
+        '<th>권한 변경</th><th>최근 접속</th><th>상태</th><th></th></tr></thead><tbody>'+
+      (us.map(function(u){
+        var self=u.id===S.user.id;
+        var stale=u.lastLogin&&(Date.now()-u.lastLogin>90*864e5);
+        return '<tr style="'+(stale?"color:#8b99a5;":"")+'">'+
+          '<td><span class="idtag">'+esc(u.id)+'</span></td>'+
+          '<td class="kr">'+esc(u.name)+'</td><td class="kr">'+esc(u.company)+'</td>'+
+          '<td>'+(self?'<span style="color:var(--text-mute);font-size:12px;">본인 계정</span>'
+            :'<select class="chLv" data-id="'+esc(u.id)+'" style="width:auto;">'+lvOpts(u.level)+'</select>')+'</td>'+
+          '<td>'+(u.lastLogin?fmt(u.lastLogin,true):"미접속")+'</td>'+
+          '<td>'+(u.status==="suspended"?'<span class="tag t-grey">정지</span>':'<span class="tag t-ok">사용</span>')+'</td>'+
+          '<td>'+(self?"":(u.status==="suspended"
+            ?'<button class="btn btn-ghost btn-sm uRe" data-id="'+esc(u.id)+'">복구</button>'
+            :'<button class="btn btn-ghost btn-sm uSp" data-id="'+esc(u.id)+'">정지</button>')+
+            ' <button class="btn btn-ghost btn-sm uPw" data-id="'+esc(u.id)+'">PW초기화</button>')+'</td></tr>';
+      }).join("")||'<tr><td colspan="7" class="empty">해당 권한 사용자가 없습니다.</td></tr>')+
+      '</tbody></table></div></div>';
+  }).join("");
+
+  return '<div class="grid3">'+
+    '<div class="statcard"><div class="lbl">승인 대기</div><div class="val" style="color:'+(pend.length?"#d1462f":"#0d2436")+'">'+pend.length+' <small>건</small></div></div>'+
+    '<div class="statcard"><div class="lbl">등록 사용자</div><div class="val">'+appr.length+' <small>명</small></div></div>'+
+    '<div class="statcard"><div class="lbl">업체 공구장</div><div class="val">'+byLv[2].length+' <small>명</small></div></div>'+
+  '</div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>권한 부여 대기</h2>'+
+    '<div class="sub">신청한 권한을 확인하고 최종 권한을 지정해 승인하세요</div></div>'+
+    (canExport()?'<button class="btn btn-ghost btn-sm" id="csvUsers">Excel 내보내기</button>':"")+'</div>'+
+    '<div class="tablewrap"><table><thead><tr><th>사번(아이디)</th><th>이름</th><th>소속</th><th>신청 권한</th><th>신청일</th><th>처리</th></tr></thead>'+
+    '<tbody>'+(pendRows||'<tr><td colspan="6" class="empty">대기중인 신청이 없습니다.</td></tr>')+'</tbody></table></div></div>'+
+  lvCards;
+}
+
+function bindGrant(){
+  var U=function(id){ return S.users.filter(function(u){return u.id===id;})[0]; };
+  var saveU=async function(u,msg){
+    if(await push(function(){ return db.from("users").upsert(M.userOut(u)); },msg||"저장되었습니다.")){
+      await pull(); render(); } };
+  document.querySelectorAll(".apOk").forEach(function(el){ el.onclick=function(){
+    var u=U(el.dataset.id);
+    var sel=document.querySelector('.apLv[data-id="'+CSS.escape(el.dataset.id)+'"]');
+    u.status="approved"; u.level=+sel.value;
+    saveU(u,u.name+" 계정을 Lv."+u.level+"로 승인했습니다."); }; });
+  document.querySelectorAll(".apNo").forEach(function(el){ el.onclick=async function(){
+    if(!confirm("가입 신청을 거절하고 삭제합니다.")) return;
+    if(await push(function(){ return db.from("users").delete().eq("id",el.dataset.id); },"삭제되었습니다.")){
+      await pull(); render(); } }; });
+  document.querySelectorAll(".chLv").forEach(function(el){ el.onchange=function(){
+    var u=U(el.dataset.id); u.level=+el.value; saveU(u,u.name+" 권한을 Lv."+u.level+"로 변경했습니다."); }; });
+  document.querySelectorAll(".uSp").forEach(function(el){ el.onclick=function(){
+    var u=U(el.dataset.id); u.status="suspended"; saveU(u,"정지되었습니다."); }; });
+  document.querySelectorAll(".uRe").forEach(function(el){ el.onclick=function(){
+    var u=U(el.dataset.id); u.status="approved"; saveU(u,"복구되었습니다."); }; });
+  document.querySelectorAll(".uPw").forEach(function(el){ el.onclick=function(){
+    var u=U(el.dataset.id);
+    var np=prompt(u.name+" 계정의 새 비밀번호를 입력하세요 (4자 이상, 영문·숫자 권장)");
+    if(np===null) return;
+    if(np.trim().length<4){ alert("4자 이상 입력하세요."); return; }
+    u.pass=np.trim(); saveU(u,"비밀번호가 초기화되었습니다."); }; });
+  var c=document.getElementById("csvUsers");
+  if(c) c.onclick=function(){ exportCSV("사용자권한",["아이디","이름","소속","권한","권한명","신청권한","상태","최근접속"],
+    S.users.map(function(u){ return [u.id,u.name,u.company,"Lv."+u.level,LEVEL_NAME[u.level],
+      "Lv."+(u.reqLevel||1),u.status,u.lastLogin?fmt(u.lastLogin):"미접속"]; })); };
+}
+
+/* ══════════════════════════════════════════════════════════
+   품목 마스터 (Lv.4 전용)
+   ══════════════════════════════════════════════════════════ */
 function viewItems(){
-  return `<div class="msg msg-info"><b>기본 취급 단위</b>는 불출 화면의 +/− 버튼 증감폭을 정합니다. 100으로 두면 ±100, ±1,000 버튼이 생겨 수천 단위 입력이 빨라집니다.</div>
-  <div class="panel"><div class="panel-head"><div><h2>품목 마스터</h2>
-    <div class="sub">${S.items.length}종 · 최소 재고 미만이면 부족 경고가 표시됩니다</div></div>
-    <button class="btn btn-ghost btn-sm" id="csvItems">CSV 내보내기</button></div>
-    <div class="panel-body"><div class="tablewrap"><table><thead><tr><th>품목명</th><th>단위</th><th>현재고</th>
-      <th>최소재고</th><th>기본 취급 단위</th><th></th></tr></thead>
-      <tbody>${S.items.map(i=>`<tr>
-        <td><input type="text" class="mN" value="${esc(i.name)}" style="width:190px"></td>
-        <td><input type="text" class="mU" value="${esc(i.unit)}" style="width:60px"></td>
-        <td><input type="number" class="mS" value="${i.stock}" style="width:90px"></td>
-        <td><input type="number" class="mM" value="${i.minStock}" style="width:90px"></td>
-        <td><input type="number" class="mP" value="${i.step||1}" style="width:80px"></td>
-        <td><button class="btn btn-ghost btn-sm mSave" data-id="${i.id}">저장</button>
-            <button class="btn btn-danger btn-sm mDel" data-id="${i.id}">삭제</button></td></tr>`).join("")}</tbody></table></div>
-      <div style="margin-top:16px;border-top:1px solid var(--steel-line);padding-top:14px;">
-        <div class="form-row">
-          <div class="field"><label>품목명</label><input type="text" id="nN" placeholder="예: 절연테이프"></div>
-          <div class="field"><label>단위</label><input type="text" id="nU" placeholder="롤"></div>
-          <div class="field"><label>초기 재고</label><input type="number" id="nS" value="0"></div>
-          <div class="field"><label>최소 재고</label><input type="number" id="nM" value="0"></div>
-          <div class="field"><label>취급 단위</label><input type="number" id="nP" value="10"></div>
-          <button class="btn btn-primary" id="nAdd">품목 추가</button></div></div>
-    </div></div>`;
+  var usage={};
+  S.stocks.forEach(function(s){ usage[s.itemId]=(usage[s.itemId]||0)+1; });
+  return (S.msg.it?'<div class="msg msg-ok">'+esc(S.msg.it)+'</div>':"")+
+  '<div class="msg msg-info">품목 마스터는 <b>전체 품목의 사전</b>입니다. 여기서 정의한 품목 중에서 각 업체가 보관하는 것만 <b>업체 취급 품목</b> 탭에서 선택해 등록합니다. 재고 수량은 업체별로 따로 관리되므로 여기서는 다루지 않습니다.</div>'+
+  '<div class="msg msg-warn"><b>기본 취급 단위</b>는 불출 화면의 +/− 버튼 증감폭을 정합니다. 100으로 두면 ±100, ±1,000 버튼이 생겨 수천 단위 입력이 빨라집니다. 실제 불출 단위에 맞추는 것이 현장 사용성에 가장 큰 영향을 줍니다.</div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>품목 마스터</h2>'+
+    '<div class="sub">'+S.items.length+'종 · Lv.4 총관리자만 수정할 수 있습니다</div></div>'+
+    (canExport()?'<button class="btn btn-ghost btn-sm" id="csvItems">Excel 내보내기</button>':"")+'</div>'+
+    '<div class="panel-body"><div class="tablewrap"><table><thead><tr>'+
+      '<th>품목명</th><th>단위</th><th>기본 취급 단위</th><th>사용 업체</th><th></th></tr></thead><tbody>'+
+      S.items.map(function(i){ return '<tr>'+
+        '<td><input type="text" class="mN" value="'+esc(i.name)+'" style="width:210px"></td>'+
+        '<td><input type="text" class="mU" value="'+esc(i.unit)+'" style="width:70px"></td>'+
+        '<td><input type="number" class="mP" value="'+(i.step||1)+'" style="width:90px"></td>'+
+        '<td>'+(usage[i.id]||0)+'개 업체</td>'+
+        '<td><button class="btn btn-ghost btn-sm mSave" data-id="'+i.id+'">저장</button> '+
+            '<button class="btn btn-danger btn-sm mDel" data-id="'+i.id+'">삭제</button></td></tr>'; }).join("")+
+    '</tbody></table></div>'+
+      '<div style="margin-top:16px;border-top:1px solid var(--steel-line);padding-top:14px;">'+
+        '<div class="form-row">'+
+          '<div class="field"><label>품목명</label><input type="text" id="nN" placeholder="예: 절연테이프"></div>'+
+          '<div class="field"><label>단위</label><input type="text" id="nU" placeholder="롤"></div>'+
+          '<div class="field"><label>기본 취급 단위</label><input type="number" id="nP" value="10"></div>'+
+          '<button class="btn btn-primary" id="nAdd">품목 추가</button></div></div>'+
+    '</div></div>';
 }
 
 function bindItems(){
-  document.querySelectorAll(".mSave").forEach(el=>el.onclick=async()=>{
-    const tr=el.closest("tr");
-    const o={id:el.dataset.id,name:tr.querySelector(".mN").value.trim(),
-      unit:tr.querySelector(".mU").value.trim()||"EA",stock:+tr.querySelector(".mS").value||0,
-      minStock:+tr.querySelector(".mM").value||0,step:Math.max(1,+tr.querySelector(".mP").value||1)};
-    if(await push(()=>db.from("items").upsert(M.itemOut(o)),"저장되었습니다.")){ await pull(); render(); } });
-  document.querySelectorAll(".mDel").forEach(el=>el.onclick=async()=>{
-    if(!confirm("품목을 삭제합니다. 기존 로그는 그대로 유지됩니다.")) return;
-    if(await push(()=>db.from("items").delete().eq("id",el.dataset.id),"삭제되었습니다.")){ await pull(); render(); } });
-  const a=document.getElementById("nAdd");
-  if(a) a.onclick=async()=>{
-    const n=document.getElementById("nN").value.trim(); if(!n) return;
-    const o={id:uid(),name:n,unit:document.getElementById("nU").value.trim()||"EA",
-      stock:+document.getElementById("nS").value||0,minStock:+document.getElementById("nM").value||0,
-      step:Math.max(1,+document.getElementById("nP").value||1)};
-    if(await push(()=>db.from("items").insert(M.itemOut(o)),`${n} 추가 완료`)){ await pull(); render(); } };
-  const c=document.getElementById("csvItems");
-  if(c) c.onclick=()=>exportCSV("품목마스터",["품목명","단위","현재고","최소재고","취급단위"],
-    S.items.map(i=>[i.name,i.unit,i.stock,i.minStock,i.step||1]));
+  document.querySelectorAll(".mSave").forEach(function(el){ el.onclick=async function(){
+    var tr=el.closest("tr");
+    var o={id:el.dataset.id,name:tr.querySelector(".mN").value.trim(),
+      unit:tr.querySelector(".mU").value.trim()||"EA",
+      step:Math.max(1,parseInt(tr.querySelector(".mP").value,10)||1)};
+    if(!o.name){ alert("품목명을 입력하세요."); return; }
+    if(await push(function(){ return db.from("items").update(
+      {name:o.name,unit:o.unit,step:o.step}).eq("id",o.id); },"저장되었습니다.")){
+      await pull(); render(); } }; });
+  document.querySelectorAll(".mDel").forEach(function(el){ el.onclick=async function(){
+    var used=S.stocks.filter(function(s){return s.itemId===el.dataset.id;}).length;
+    if(!confirm("품목을 마스터에서 삭제합니다."+(used?"\n\n현재 "+used+"개 업체가 취급 중입니다. 해당 업체 재고 정보도 함께 삭제됩니다.":"")+"\n\n기존 로그는 그대로 유지됩니다.")) return;
+    await push(function(){ return db.from("stocks").delete().eq("item_id",el.dataset.id); });
+    if(await push(function(){ return db.from("items").delete().eq("id",el.dataset.id); },"삭제되었습니다.")){
+      await pull(); render(); } }; });
+  var a=document.getElementById("nAdd");
+  if(a) a.onclick=async function(){
+    var n=document.getElementById("nN").value.trim();
+    if(!n){ alert("품목명을 입력하세요."); return; }
+    var o={id:uid(),name:n,unit:document.getElementById("nU").value.trim()||"EA",
+      step:Math.max(1,parseInt(document.getElementById("nP").value,10)||1)};
+    if(await push(function(){ return db.from("items").insert(M.itemOut(o)); },n+" 추가 완료")){
+      S.msg.it=n+" 품목이 추가되었습니다. 업체 취급 품목 탭에서 보관 업체를 지정하세요.";
+      await pull(); render(); } };
+  var c=document.getElementById("csvItems");
+  if(c) c.onclick=function(){ exportCSV("품목마스터",["품목명","단위","기본취급단위","사용업체수"],
+    S.items.map(function(i){ return [i.name,i.unit,i.step,
+      S.stocks.filter(function(s){return s.itemId===i.id;}).length]; })); };
 }
 
-/* ── 내 계정 ── */
+/* ══════════════════════════════════════════════════════════
+   내 계정
+   ══════════════════════════════════════════════════════════ */
 function viewMe(){
-  const u=S.user, need=u.level>=2&&!u.pwChanged;
-  return `${need?`<div class="msg msg-warn">${LEVEL_NAME[u.level]} 등급은 초기 비밀번호(이름)를 그대로 쓰면 계정이 쉽게 도용됩니다. 지금 변경하세요.</div>`:""}
-  <div class="panel"><div class="panel-head"><div><h2>내 계정</h2></div></div>
-    <div class="panel-body"><div class="form-row" style="margin-bottom:16px;">
-      <div class="field"><label>아이디</label><input type="text" value="${esc(u.id)}" disabled></div>
-      <div class="field"><label>이름</label><input type="text" value="${esc(u.name)}" disabled></div>
-      <div class="field"><label>업체</label><input type="text" value="${esc(u.company)}" disabled></div>
-      <div class="field"><label>권한</label><input type="text" value="${esc(roleLabel(u))}" disabled></div></div>
-      <div style="border-top:1px solid var(--steel-line);padding-top:14px;max-width:420px;">
-        <div class="field"><label>새 비밀번호</label><input type="password" id="pw1" placeholder="4자 이상"></div>
-        <div class="field"><label>새 비밀번호 확인</label><input type="password" id="pw2"></div>
-        <button class="btn btn-primary" id="pwSave">비밀번호 변경</button></div></div></div>
-  ${lv(4)?`<div class="panel"><div class="panel-head"><div><h2>데이터 백업</h2>
-    <div class="sub">서버에 보관되지만, 월 1회 파일로도 내려받아 두면 안전합니다.</div></div></div>
-    <div class="panel-body"><button class="btn btn-navy" id="bkup">전체 데이터 백업 (JSON)</button></div></div>`:""}`;
+  var u=S.user;
+  return (S.msg.me?'<div class="msg msg-ok">'+esc(S.msg.me)+'</div>':"")+
+  '<div class="panel"><div class="panel-head"><div><h2>내 계정</h2></div></div>'+
+    '<div class="panel-body"><div class="form-row" style="margin-bottom:16px;">'+
+      '<div class="field"><label>아이디</label><input type="text" value="'+esc(u.id)+'" disabled></div>'+
+      '<div class="field"><label>이름</label><input type="text" value="'+esc(u.name)+'" disabled></div>'+
+      '<div class="field"><label>소속</label><input type="text" value="'+esc(u.company)+'" disabled></div>'+
+      '<div class="field"><label>권한</label><input type="text" value="Lv.'+u.level+' · '+esc(LEVEL_NAME[u.level])+'" disabled></div></div>'+
+      '<div style="border-top:1px solid var(--steel-line);padding-top:14px;max-width:420px;">'+
+        '<div class="field"><label>새 비밀번호</label><input type="password" id="pw1" placeholder="4자 이상, 영문·숫자 권장"></div>'+
+        '<div class="field"><label>새 비밀번호 확인</label><input type="password" id="pw2"></div>'+
+        '<button class="btn btn-primary" id="pwSave">비밀번호 변경</button></div></div></div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>내 권한 범위</h2></div></div>'+
+    '<div class="panel-body"><div class="tablewrap"><table><thead><tr><th>기능</th><th>권한</th></tr></thead><tbody>'+
+    [["부자재 불출 (차감)",true],
+     ["입고·반납 (증가)",lv(2)],
+     ["익월 신청 수량 입력",canRequest()],
+     ["긴급 신청 접수",canRequest()],
+     ["업체 취급 품목 관리",lv(2)],
+     ["재고 실사",lv(2)],
+     ["전 업체 조회·관리",lv(3)],
+     ["신청 수량 조정·코멘트",lv(3)],
+     ["로그 정정",lv(3)],
+     ["Excel 내보내기",canExport()],
+     ["품목 마스터 관리",canManageItems()],
+     ["권한 부여",canGrant()]].map(function(r){
+       return '<tr><td class="kr">'+r[0]+'</td><td>'+(r[1]
+         ?'<span class="tag t-ok">가능</span>':'<span class="tag t-grey">불가</span>')+'</td></tr>'; }).join("")+
+    '</tbody></table></div></div></div>'+
+  (canGrant()?'<div class="panel"><div class="panel-head"><div><h2>데이터 백업</h2>'+
+    '<div class="sub">서버에 보관되지만, 월 1회 파일로도 내려받아 두면 안전합니다.</div></div></div>'+
+    '<div class="panel-body"><button class="btn btn-navy" id="bkup">전체 데이터 백업 (JSON)</button></div></div>':"");
 }
 
 function bindMe(){
-  const b=document.getElementById("pwSave");
-  if(b) b.onclick=async()=>{
-    const a=document.getElementById("pw1").value,c=document.getElementById("pw2").value;
+  var b=document.getElementById("pwSave");
+  if(b) b.onclick=async function(){
+    var a=document.getElementById("pw1").value, c=document.getElementById("pw2").value;
     if(a.length<4){ alert("4자 이상 입력하세요."); return; }
     if(a!==c){ alert("두 비밀번호가 일치하지 않습니다."); return; }
-    S.user.pass=a; S.user.pwChanged=true;
-    if(await push(()=>db.from("users").upsert(M.userOut(S.user)),"비밀번호가 변경되었습니다.")){ await pull(); render(); } };
-  const k=document.getElementById("bkup");
-  if(k) k.onclick=()=>download("부자재백업_"+new Date().toISOString().slice(0,10)+".json",
-    JSON.stringify({exportedAt:new Date().toISOString(),users:S.users,items:S.items,logs:S.logs,
-      requests:S.requests,emergencies:S.emergencies,stocktakes:S.stocktakes},null,2),"application/json");
+    S.user.pass=a;
+    if(await push(function(){ return db.from("users").upsert(M.userOut(S.user)); },"비밀번호가 변경되었습니다.")){
+      S.msg.me="비밀번호가 변경되었습니다."; await pull(); render(); } };
+  var k=document.getElementById("bkup");
+  if(k) k.onclick=function(){ download("부자재백업_"+new Date().toISOString().slice(0,10)+".json",
+    JSON.stringify({exportedAt:new Date().toISOString(),users:S.users,items:S.items,stocks:S.stocks,
+      logs:S.logs,requests:S.requests,emergencies:S.emergencies,stocktakes:S.stocktakes},null,2),
+    "application/json"); };
 }
 
-/* ── 내보내기 ── */
+/* ══════════════════════════════════════════════════════════
+   내보내기
+   ══════════════════════════════════════════════════════════ */
 function download(name,content,mime){
   try{
-    const blob=new Blob(["\uFEFF"+content],{type:mime+";charset=utf-8;"});
-    const a=document.createElement("a");
+    var blob=new Blob(["\uFEFF"+content],{type:mime+";charset=utf-8;"});
+    var a=document.createElement("a");
     a.href=URL.createObjectURL(blob); a.download=name;
     document.body.appendChild(a); a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500);
   }catch(e){ alert("다운로드가 차단되었습니다. 브라우저 설정을 확인하세요."); }
 }
 function exportCSV(name,head,rows){
-  const q=v=>{ const s=String(v==null?"":v); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  if(!canExport()){ toast("데이터 내보내기 권한이 없습니다.",true); return; }
+  var q=function(v){ var s=String(v==null?"":v);
+    return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
   download(name+"_"+new Date().toISOString().slice(0,10)+".csv",
-    [head.map(q).join(",")].concat(rows.map(r=>r.map(q).join(","))).join("\r\n"),"text/csv");
+    [head.map(q).join(",")].concat(rows.map(function(r){ return r.map(q).join(","); })).join("\r\n"),
+    "text/csv");
 }
 
-/* ── 시작 ── */
+/* ══════════════════════════════════════════════════════════
+   시작
+   ══════════════════════════════════════════════════════════ */
 (async function main(){
   document.getElementById("app").innerHTML=
     '<div style="padding:70px;text-align:center;color:#5f7080;font-size:13px;">서버에서 불러오는 중…</div>';
   if(!await pull()){
-    const e=LAST_ERR||{};
-    const raw=[e.message,e.hint,e.details,e.code].filter(Boolean).join(" | ")||"알 수 없는 오류";
-    const t=raw.toLowerCase();
-    let cause, fix;
-    if(t.includes("invalid api key")||t.includes("jwt")||t.includes("unauthorized")||t.includes("401")||t.includes("no api key")){
+    var e=LAST_ERR||{};
+    var raw=[e.message,e.hint,e.details,e.code].filter(Boolean).join(" | ")||"알 수 없는 오류";
+    var t=raw.toLowerCase(), cause, fix;
+    if(t.indexOf("invalid api key")>=0||t.indexOf("jwt")>=0||t.indexOf("401")>=0||t.indexOf("no api key")>=0){
       cause="API 키가 유효하지 않습니다 (401).";
-      fix=`<ul style="line-height:1.9;font-size:13.5px;">
-        <li>Supabase <code>Project Settings → API</code>에서 키를 <b>복사 버튼</b>으로 다시 복사하세요. 드래그 복사는 끝이 잘리기 쉽습니다.</li>
-        <li><code>sb_publishable_...</code> 형태의 키가 보이면 <b>그 키를 쓰세요.</b> Legacy anon 키가 비활성화된 프로젝트일 수 있습니다.</li>
-        <li><code>service_role</code> / <code>secret</code> 키는 사용하면 안 됩니다.</li>
-        <li>Supabase 프로젝트를 여러 개 만들었다면, URL과 키가 <b>같은 프로젝트</b>의 것인지 확인하세요.</li></ul>`;
-    } else if(t.includes("does not exist")||t.includes("relation")||t.includes("schema cache")||t.includes("pgrst")){
-      cause="데이터베이스 테이블이 아직 만들어지지 않았습니다.";
-      fix=`<ul style="line-height:1.9;font-size:13.5px;">
-        <li>Supabase <code>SQL Editor → New query</code>에서 <code>supabase_setup.sql</code> 전체를 붙여넣고 <b>Run</b>을 실행하세요.</li>
-        <li>실행 후 <code>Table Editor</code>에 테이블 6개(users, items, logs, requests, emergencies, stocktakes)가 보이면 정상입니다.</li></ul>`;
-    } else if(t.includes("failed to fetch")||t.includes("networkerror")||t.includes("load failed")){
+      fix='<ul style="line-height:1.9;font-size:13.5px;">'+
+        '<li>Supabase <code>Project Settings → API</code>에서 <b>복사 버튼</b>으로 키를 다시 복사하세요.</li>'+
+        '<li><code>sb_publishable_...</code> 키가 보이면 그것을 사용하세요.</li>'+
+        '<li><code>service_role</code> / <code>secret</code> 키는 사용하면 안 됩니다.</li></ul>';
+    } else if(t.indexOf("does not exist")>=0||t.indexOf("relation")>=0||t.indexOf("schema cache")>=0||t.indexOf("pgrst")>=0){
+      cause="데이터베이스 테이블이 준비되지 않았습니다.";
+      fix='<ul style="line-height:1.9;font-size:13.5px;">'+
+        '<li>Supabase <code>SQL Editor</code>에서 <code>supabase_v3_upgrade.sql</code>을 실행했는지 확인하세요.</li>'+
+        '<li><code>stocks</code> 테이블과 <code>apply_stock_movement</code> 함수가 필요합니다.</li></ul>';
+    } else if(t.indexOf("row-level security")>=0||t.indexOf("policy")>=0){
+      cause="접근 규칙(RLS)이 설정되지 않았습니다.";
+      fix='<ul style="line-height:1.9;font-size:13.5px;">'+
+        '<li>Supabase <code>SQL Editor</code>에서 <code>supabase_rls_fix.sql</code>과 '+
+        '<code>supabase_v3_upgrade.sql</code>을 모두 실행하세요.</li></ul>';
+    } else if(t.indexOf("failed to fetch")>=0||t.indexOf("networkerror")>=0){
       cause="서버 주소에 접속하지 못했습니다.";
-      fix=`<ul style="line-height:1.9;font-size:13.5px;">
-        <li><code>SUPABASE_URL</code>에 오타가 없는지 확인하세요. <code>https://</code>로 시작하고 <code>.supabase.co</code>로 끝나야 합니다.</li>
-        <li>사내망에서 외부 접속이 차단되어 있을 수 있습니다. 휴대폰 데이터로 접속해 보세요.</li></ul>`;
+      fix='<ul style="line-height:1.9;font-size:13.5px;">'+
+        '<li><code>SUPABASE_URL</code>은 <code>https://xxxx.supabase.co</code> 형태여야 합니다. '+
+        '뒤에 <code>/rest/v1/</code>이 붙어 있으면 지우세요.</li>'+
+        '<li>사내망 차단 가능성이 있습니다. 휴대폰 데이터로 확인해 보세요.</li></ul>';
     } else {
       cause="예상하지 못한 오류입니다.";
-      fix=`<ul style="line-height:1.9;font-size:13.5px;">
-        <li>아래 오류 내용을 그대로 전달해 주시면 원인을 특정할 수 있습니다.</li></ul>`;
+      fix='<ul style="line-height:1.9;font-size:13.5px;"><li>아래 오류 내용을 그대로 전달해 주세요.</li></ul>';
     }
-    setupScreen("서버에 연결하지 못했습니다",`
-      <p style="line-height:1.7;font-size:14px;"><b>${cause}</b></p>
-      ${fix}
-      <div style="margin:16px 0;padding:12px;background:#f3f6f8;border-left:3px solid #d1462f;
-        border-radius:3px;font-family:'IBM Plex Mono';font-size:12px;word-break:break-all;color:#485663;">
-        ${String(raw).replace(/</g,"&lt;")}</div>
-      <p style="font-size:12.5px;color:#5f7080;">현재 설정 — URL <code>${CFG_URL.slice(0,45)}</code> ·
-        KEY <code>${CFG_KEY.slice(0,12)}…</code> (${CFG_KEY.length}자)</p>
-      <button class="btn btn-primary" onclick="location.reload()">다시 시도</button>`);
+    setupScreen("서버에 연결하지 못했습니다",
+      '<p style="line-height:1.7;font-size:14px;"><b>'+cause+'</b></p>'+fix+
+      '<div style="margin:16px 0;padding:12px;background:#f3f6f8;border-left:3px solid #d1462f;'+
+      'border-radius:3px;font-family:IBM Plex Mono;font-size:12px;word-break:break-all;color:#485663;">'+
+      String(raw).replace(/</g,"&lt;")+'</div>'+
+      '<p style="font-size:12.5px;color:#5f7080;">현재 설정 — URL <code>'+CFG_URL.slice(0,45)+'</code> · '+
+      'KEY <code>'+CFG_KEY.slice(0,12)+'…</code> ('+CFG_KEY.length+'자)</p>'+
+      '<button class="btn btn-primary" onclick="location.reload()">다시 시도</button>');
     return;
   }
-  const sid=ls("bz_session");
-  if(sid){ const u=S.users.find(x=>x.id===sid&&x.status==="approved"); if(u){ S.user=u; startPoll(); } }
+  var sid=ls("bz_session");
+  if(sid){ var u=S.users.filter(function(x){ return x.id===sid&&x.status==="approved"; })[0];
+    if(u){ S.user=u; startPoll(); } }
   if(!S.user&&S.users.length===0){
     S.authTab="signup";
     S.authMsg={t:"o",m:"첫 사용입니다. 총관리자(Lv.4) 계정을 먼저 만드세요. 최초 가입자는 자동 승인되며 기본 품목 30종이 함께 등록됩니다."};
