@@ -225,8 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v4.2";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-08-21 · 권한 5단계 · 입고 확인 Lv.4+";
+const APP_VERSION = "v4.3";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-08-21 · 한글 검색 입력 개선";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -735,15 +735,28 @@ function knownTeams(){
   return out.slice(0,40);
 }
 
-function viewWithdraw(){
-  var co=curCo();
+function wPickHTML(){
+  var co=curCo(), q=(S.wSearch||"").toLowerCase();
   var pool=itemsOf(co).filter(function(x){
-    return !S.wSearch || x.item.name.toLowerCase().indexOf(S.wSearch.toLowerCase())>=0; });
+    return !q || (x.item.name+" "+(x.item.spec||"")+" "+(x.item.code||"")).toLowerCase().indexOf(q)>=0; });
   var fav=recentItemIds();
   pool.sort(function(a,b){
     var fa=fav.indexOf(a.item.id), fb=fav.indexOf(b.item.id);
     if(fa>=0&&fb>=0) return fa-fb; if(fa>=0) return -1; if(fb>=0) return 1;
     return a.item.name.localeCompare(b.item.name,"ko"); });
+  return pool.map(function(x){
+    return '<div class="pitem '+(S.wItem===x.item.id?"sel":"")+'" data-pick="'+x.item.id+'">'+
+      '<span class="nm">'+esc(x.item.name)+(fav.indexOf(x.item.id)>=0?'<span class="fav">최근</span>':"")+
+        (x.item.spec?'<div style="font-size:11px;color:var(--text-mute);font-weight:400;">'+esc(x.item.spec)+'</div>':"")+'</span>'+
+      '<span class="st">보유 '+nf(x.stock.qty)+' '+esc(x.item.unit)+'</span></div>'; }).join("")
+    ||'<div class="empty">'+(itemsOf(co).length===0?"이 업체의 취급 품목이 등록되지 않았습니다.":"검색 결과가 없습니다.")+'</div>';
+}
+function bindWPicks(){
+  document.querySelectorAll("[data-pick]").forEach(function(el){
+    el.onclick=function(){ S.wItem=el.dataset.pick; S.wQty=0; S.wMsg=null; render(); }; });
+}
+function viewWithdraw(){
+  var co=curCo();
 
   var sel=S.wItem?stockOf(co,S.wItem):null;
   var it=S.wItem?itemById(S.wItem):null;
@@ -765,12 +778,7 @@ function viewWithdraw(){
     '<div class="field"><label>1. 품목 선택</label>'+
       '<div class="picker"><div class="picker-search">'+
         '<input type="text" id="wSearch" placeholder="품목명 검색" value="'+esc(S.wSearch)+'"></div>'+
-      '<div class="picker-list">'+(pool.map(function(x){
-        return '<div class="pitem '+(S.wItem===x.item.id?"sel":"")+'" data-pick="'+x.item.id+'">'+
-          '<span class="nm">'+esc(x.item.name)+(fav.indexOf(x.item.id)>=0?'<span class="fav">최근</span>':"")+
-            (x.item.spec?'<div style="font-size:11px;color:var(--text-mute);font-weight:400;">'+esc(x.item.spec)+'</div>':"")+'</span>'+
-          '<span class="st">보유 '+nf(x.stock.qty)+' '+esc(x.item.unit)+'</span></div>'; }).join("")
-        ||'<div class="empty">'+(itemsOf(co).length===0?"이 업체의 취급 품목이 등록되지 않았습니다.":"검색 결과가 없습니다.")+'</div>')+
+      '<div class="picker-list" id="wPickList">'+wPickHTML()+
       '</div></div></div>'+
     (it?
       '<div class="field"><label>2. 수량 입력 — '+esc(it.name)+'</label>'+
@@ -812,10 +820,10 @@ function bindWithdraw(){
   document.querySelectorAll("[data-mode]").forEach(function(el){
     el.onclick=function(){ S.wMode=el.dataset.mode; S.wMsg=null; render(); }; });
   var se=document.getElementById("wSearch");
-  if(se) se.oninput=function(){ S.wSearch=se.value; var p=se.selectionStart; render();
-    var n=document.getElementById("wSearch"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
-  document.querySelectorAll("[data-pick]").forEach(function(el){
-    el.onclick=function(){ S.wItem=el.dataset.pick; S.wQty=0; S.wMsg=null; render(); }; });
+  if(se) se.oninput=function(){ S.wSearch=se.value;
+    var box=document.getElementById("wPickList");
+    if(box){ box.innerHTML=wPickHTML(); bindWPicks(); } };
+  bindWPicks();
   var q=document.getElementById("wQty");
   if(q){ q.oninput=function(){ S.wQty=Math.max(0,parseInt(q.value,10)||0);
     var b=document.getElementById("wSubmit"); if(b) b.disabled=!S.wQty; };
@@ -973,6 +981,53 @@ function monthReqs(co){
   return S.requests.filter(function(r){ return r.month===S.reqMonth && r.company===co; });
 }
 
+function reqAddData(){
+  var co=curCo();
+  var reqs=monthReqs(co);
+  var hist={};
+  S.requests.forEach(function(r){
+    if(r.company===co&&(finalQty(r)>0||r.requestedQty!=null)) hist[r.itemId]=(hist[r.itemId]||0)+1; });
+  var hasHist=Object.keys(hist).length>0;
+  var scope=hasHist?(S.reqScope||"freq"):"all";
+  var cat=S.reqCat, q=S.reqSearch.toLowerCase();
+  var pool=S.items.filter(function(i){
+    if(scope==="freq"&&!hist[i.id]) return false;
+    if(cat&&(i.category||"")!==cat) return false;
+    if(!q) return true;
+    return (i.name+" "+(i.spec||"")+" "+(i.code||"")).toLowerCase().indexOf(q)>=0;
+  });
+  if(scope==="freq") pool.sort(function(a,b){ return (hist[b.id]||0)-(hist[a.id]||0)||a.name.localeCompare(b.name,"ko"); });
+  var lim=S.reqLimit||60;
+  var haveReq={}; reqs.forEach(function(r){ haveReq[r.itemId]=r; });
+  var rows=pool.slice(0,lim).map(function(i){
+    var r=haveReq[i.id];
+    var val=r?(r.requestedQty==null?"":r.requestedQty):"";
+    var lock=r&&!reqEditable(r);
+    return '<tr><td style="font-size:11px;">'+esc(i.code||i.id)+'</td>'+
+      '<td class="kr"><b>'+esc(i.name)+'</b>'+(i.spec?'<div style="font-size:11px;color:var(--text-mute);">'+esc(i.spec)+'</div>':"")+'</td>'+
+      '<td>'+esc(i.unit)+'</td><td>'+won(i.price)+'</td>'+
+      '<td>'+(lock?'<span class="tag t-ret">발주됨</span>'
+        :'<input type="number" min="0" class="rq" data-id="'+esc(i.id)+'" value="'+val+'" style="width:88px">')+'</td>'+
+      '<td class="rAmt" data-id="'+esc(i.id)+'" data-price="'+(i.price||0)+'">'+
+        (val?won(val*(i.price||0)):"-")+'</td></tr>';
+  }).join("")||'<tr><td colspan="6" class="empty">'+
+    (scope==="freq"?"신청 이력이 없습니다. [전체 품목]에서 찾아보세요.":"검색 결과가 없습니다.")+'</td></tr>';
+  var more=pool.length>lim?'<div style="text-align:center;margin-top:10px;">'+
+    '<button class="btn btn-ghost" id="rMore">더 보기 ('+nf(pool.length-lim)+'개 남음)</button></div>':"";
+  return {rows:rows,more:more,hasHist:hasHist,scope:scope,histCnt:Object.keys(hist).length};
+}
+function bindReqAddRows(){
+  document.querySelectorAll(".rq").forEach(function(el){ el.oninput=function(){
+    var cell=document.querySelector('.rAmt[data-id="'+CSS.escape(el.dataset.id)+'"]');
+    if(cell) cell.textContent=el.value?won((+el.value||0)*(+cell.dataset.price||0)):"-"; }; });
+  var mr=document.getElementById("rMore");
+  if(mr) mr.onclick=function(){ S.reqLimit=(S.reqLimit||60)+60; 
+    var d=reqAddData();
+    var tb=document.getElementById("rBody"), mb=document.getElementById("rMoreBox");
+    if(tb) tb.innerHTML=d.rows;
+    if(mb) mb.innerHTML=d.more;
+    bindReqAddRows(); };
+}
 function viewReq(){
   var co=curCo();
   var reqs=monthReqs(co);
@@ -1012,31 +1067,17 @@ function viewReq(){
     if(!reqEditable(null)){
       body='<div class="msg msg-warn">지난 달('+esc(S.reqMonth)+') 신청은 수정할 수 없습니다. 관리자에게 문의하세요.</div>';
     } else {
-      /* 이 업체가 과거에 신청했던 품목 빈도 */
-      var hist={};
-      S.requests.forEach(function(r){
-        if(r.company===co&&(finalQty(r)>0||r.requestedQty!=null)) hist[r.itemId]=(hist[r.itemId]||0)+1; });
-      var hasHist=Object.keys(hist).length>0;
-      var scope=hasHist?(S.reqScope||"freq"):"all";
-      var cat=S.reqCat, q=S.reqSearch.toLowerCase();
-      var pool=S.items.filter(function(i){
-        if(scope==="freq"&&!hist[i.id]) return false;
-        if(cat&&(i.category||"")!==cat) return false;
-        if(!q) return true;
-        return (i.name+" "+(i.spec||"")+" "+(i.code||"")).toLowerCase().indexOf(q)>=0;
-      });
-      if(scope==="freq") pool.sort(function(a,b){ return (hist[b.id]||0)-(hist[a.id]||0)||a.name.localeCompare(b.name,"ko"); });
-      var lim=S.reqLimit||60;
-      var shown=pool.slice(0,lim);
-      var haveReq={}; reqs.forEach(function(r){ haveReq[r.itemId]=r; });
-      var prevM=(function(){ var d=new Date(S.reqMonth+"-01T00:00:00"); d.setMonth(d.getMonth()-1);
-        return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); })();
+      var d=reqAddData();
+      var scope=d.scope, cat=S.reqCat, q=S.reqSearch.toLowerCase();
+      var prevM=(function(){ var dd=new Date(S.reqMonth+"-01T00:00:00"); dd.setMonth(dd.getMonth()-1);
+        return dd.getFullYear()+"-"+String(dd.getMonth()+1).padStart(2,"0"); })();
+      var cur={}; reqs.forEach(function(r){ cur[r.itemId]=1; });
       var prevCnt=S.requests.filter(function(r){
-        return r.month===prevM&&r.company===co&&finalQty(r)>0&&!haveReq[r.itemId]; }).length;
+        return r.month===prevM&&r.company===co&&finalQty(r)>0&&!cur[r.itemId]; }).length;
 
       body='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">'+
-        (hasHist?'<div class="seg">'+
-          '<div class="segbtn '+(scope==="freq"?"on":"")+'" data-rsc="freq">자주 신청 품목 ('+Object.keys(hist).length+')</div>'+
+        (d.hasHist?'<div class="seg">'+
+          '<div class="segbtn '+(scope==="freq"?"on":"")+'" data-rsc="freq">자주 신청 품목 ('+d.histCnt+')</div>'+
           '<div class="segbtn '+(scope==="all"?"on":"")+'" data-rsc="all">전체 품목</div></div>':"")+
         (prevCnt?'<button class="btn btn-navy btn-sm" id="rCopyPrev">'+esc(prevM)+' 신청 '+prevCnt+'건 불러오기</button>':"")+
       '</div>'+
@@ -1047,23 +1088,9 @@ function viewReq(){
       '</div>'+
       (scope==="freq"&&!q&&!cat?'<div class="hint" style="margin-bottom:8px;">이 업체가 신청해 온 품목입니다. 새 품목은 <b>전체 품목</b>에서 찾으세요.</div>':"")+
       '<div class="tablewrap"><table style="min-width:760px;"><thead><tr>'+
-        '<th>자재번호</th><th>자재명 / 규격</th><th>단위</th><th>단가</th><th style="width:100px;">신청 수량</th><th>금액</th></tr></thead><tbody>'+
-      (shown.map(function(i){
-        var r=haveReq[i.id];
-        var val=r?(r.requestedQty==null?"":r.requestedQty):"";
-        var lock=r&&!reqEditable(r);
-        return '<tr><td style="font-size:11px;">'+esc(i.code||i.id)+'</td>'+
-          '<td class="kr"><b>'+esc(i.name)+'</b>'+(i.spec?'<div style="font-size:11px;color:var(--text-mute);">'+esc(i.spec)+'</div>':"")+'</td>'+
-          '<td>'+esc(i.unit)+'</td><td>'+won(i.price)+'</td>'+
-          '<td>'+(lock?'<span class="tag t-ret">발주됨</span>'
-            :'<input type="number" min="0" class="rq" data-id="'+esc(i.id)+'" value="'+val+'" style="width:88px">')+'</td>'+
-          '<td class="rAmt" data-id="'+esc(i.id)+'" data-price="'+(i.price||0)+'">'+
-            (val?won(val*(i.price||0)):"-")+'</td></tr>';
-      }).join("")||'<tr><td colspan="6" class="empty">'+
-        (scope==="freq"?"신청 이력이 없습니다. [전체 품목]에서 찾아보세요.":"검색 결과가 없습니다.")+'</td></tr>')+
-      '</tbody></table></div>'+
-      (pool.length>lim?'<div style="text-align:center;margin-top:10px;">'+
-        '<button class="btn btn-ghost" id="rMore">더 보기 ('+nf(pool.length-lim)+'개 남음)</button></div>':"")+
+        '<th>자재번호</th><th>자재명 / 규격</th><th>단위</th><th>단가</th><th style="width:100px;">신청 수량</th><th>금액</th></tr></thead>'+
+        '<tbody id="rBody">'+d.rows+'</tbody></table></div>'+
+      '<div id="rMoreBox">'+d.more+'</div>'+
       '<button class="btn btn-primary" id="rSave" style="margin-top:14px;">신청 수량 저장</button>';
     }
   } else {
@@ -1128,17 +1155,16 @@ function bindReq(){
     el.onclick=function(){ S.reqView=el.dataset.rv; S.msg={}; render(); }; });
   document.querySelectorAll("[data-rsc]").forEach(function(el){
     el.onclick=function(){ S.reqScope=el.dataset.rsc; S.reqLimit=60; render(); }; });
-  var mr=document.getElementById("rMore");
-  if(mr) mr.onclick=function(){ S.reqLimit=(S.reqLimit||60)+60; render(); };
   var cs=document.getElementById("rCat");
   if(cs) cs.onchange=function(){ S.reqCat=cs.value; S.reqLimit=60; render(); };
   var se=document.getElementById("rSearch");
-  if(se) se.oninput=function(){ S.reqSearch=se.value; S.reqLimit=60; var p=se.selectionStart; render();
-    var n=document.getElementById("rSearch"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
-  /* 수량 입력 시 금액 즉시 표시 */
-  document.querySelectorAll(".rq").forEach(function(el){ el.oninput=function(){
-    var cell=document.querySelector('.rAmt[data-id="'+CSS.escape(el.dataset.id)+'"]');
-    if(cell) cell.textContent=el.value?won((+el.value||0)*(+cell.dataset.price||0)):"-"; }; });
+  if(se) se.oninput=function(){ S.reqSearch=se.value; S.reqLimit=60;
+    var d=reqAddData();
+    var tb=document.getElementById("rBody"), mb=document.getElementById("rMoreBox");
+    if(tb) tb.innerHTML=d.rows;
+    if(mb) mb.innerHTML=d.more;
+    bindReqAddRows(); };
+  bindReqAddRows();
 
   var co=curCo();
   function existing(id){ return S.requests.filter(function(z){ return z.id===S.reqMonth+"|"+co+"|"+id; })[0]; }
@@ -1230,9 +1256,8 @@ function bindReq(){
 /* ══════════════════════════════════════════════════════════
    로그 조회
    ══════════════════════════════════════════════════════════ */
-function viewLogs(){
+function logsCalc(){
   var f=S.logFilter;
-  var scope = lv(3) ? null : S.user.company;
   var co = lv(3) ? curCo() : S.user.company;
   var rows=S.logs.filter(function(l){ return l.company===co; });
   if(f.item) rows=rows.filter(function(l){ return l.itemId===f.item; });
@@ -1240,57 +1265,27 @@ function viewLogs(){
   if(f.team) rows=rows.filter(function(l){ return (l.team||"").toLowerCase().indexOf(f.team.toLowerCase())>=0; });
   if(f.from) rows=rows.filter(function(l){ return l.ts>=new Date(f.from).getTime(); });
   if(f.to) rows=rows.filter(function(l){ return l.ts<=new Date(f.to).getTime()+86399e3; });
-  var outQty=rows.filter(function(l){ return l.type==="out"&&!l.void; }).reduce(function(s,l){return s+l.qty;},0);
-
-  var itOpts='<option value="">전체 품목</option>'+itemsOf(co).map(function(x){
-    return '<option value="'+x.item.id+'" '+(f.item===x.item.id?"selected":"")+'>'+esc(x.item.name)+'</option>'; }).join("");
-  var tyOpts='<option value="">전체 구분</option>'+
-    [["out","불출"],["in","입고"],["ret","반납"],["adj","실사조정"],["cancel","정정취소"]].map(function(t){
-      return '<option value="'+t[0]+'" '+(f.type===t[0]?"selected":"")+'>'+t[1]+'</option>'; }).join("");
-
+  var outQty=rows.filter(function(l){ return l.type==="out"&&!l.void; }).reduce(function(sm,l){return sm+l.qty;},0);
   var byItem={};
   rows.filter(function(l){ return l.type==="out"&&!l.void; }).forEach(function(l){
     byItem[l.itemName]=(byItem[l.itemName]||0)+l.qty; });
   var top=Object.keys(byItem).map(function(k){ return [k,byItem[k]]; })
     .sort(function(a,b){ return b[1]-a[1]; }).slice(0,6)
-    .map(function(p){ return '<span class="tag t-grey" style="margin-right:6px;">'+esc(p[0])+' '+nf(p[1])+'</span>'; }).join("");
-
-  return companyBar()+
-  '<div class="panel"><div class="panel-head"><div><h2>'+esc(co)+' 입출고 로그</h2>'+
-    '<div class="sub">'+nf(rows.length)+'건 · 불출 합계 '+nf(outQty)+' · 로그는 삭제되지 않으며 정정 시 이력이 함께 남습니다</div></div>'+
-    (canExport()?'<button class="btn btn-ghost btn-sm" id="csvLog">Excel 내보내기</button>':"")+'</div>'+
-    '<div class="panel-body">'+
-      '<div class="filters">'+
-        '<select id="f_item">'+itOpts+'</select><select id="f_type">'+tyOpts+'</select>'+
-        '<input type="text" id="f_team" placeholder="작업팀 검색" value="'+esc(f.team)+'">'+
-        '<input type="date" id="f_from" value="'+f.from+'"><input type="date" id="f_to" value="'+f.to+'">'+
-        '<button class="btn btn-ghost btn-sm" id="f_reset">초기화</button></div>'+
-      (top?'<div style="margin-bottom:12px;">'+top+'</div>':"")+
-      '<div class="tablewrap"><table><thead><tr><th>일시</th><th>구분</th><th>품목</th><th>수량</th>'+
-        '<th>담당자</th><th>작업팀</th><th>등록자</th>'+(lv(3)?"<th>정정</th>":"")+'</tr></thead><tbody>'+
-        (rows.slice(0,400).map(function(l){ return '<tr style="'+(l.void?"opacity:.45;":"")+'">'+
-          '<td>'+fmt(l.ts,true)+'</td><td>'+(TYPE_TAG[l.type]||"")+'</td>'+
-          '<td class="kr">'+esc(l.itemName)+'</td><td>'+(l.type==="out"?"-":"+")+nf(l.qty)+'</td>'+
-          '<td class="kr">'+esc(l.taker||"-")+'</td><td class="kr">'+esc(l.team||"-")+'</td>'+
-          '<td class="kr" style="color:var(--text-mute)">'+esc(l.byName||"")+'</td>'+
-          (lv(3)?'<td>'+((l.void||l.type==="cancel")?"-":
-            '<button class="btn btn-danger btn-sm lvoid" data-id="'+l.id+'">정정</button>')+'</td>':"")+
-          '</tr>'; }).join("")||'<tr><td colspan="8" class="empty">조건에 맞는 로그가 없습니다.</td></tr>')+
-      '</tbody></table></div>'+
-      (rows.length>400?'<div class="hint">화면에는 400건만 표시됩니다. 전체는 Excel로 내보내세요.</div>':"")+
-    '</div></div>';
+    .map(function(pr){ return '<span class="tag t-grey" style="margin-right:6px;">'+esc(pr[0])+' '+nf(pr[1])+'</span>'; }).join("");
+  var body=rows.slice(0,400).map(function(l){ return '<tr style="'+(l.void?"opacity:.45;":"")+'">'+
+      '<td>'+fmt(l.ts,true)+'</td><td>'+(TYPE_TAG[l.type]||"")+'</td>'+
+      '<td class="kr">'+esc(l.itemName)+'</td><td>'+(l.type==="out"?"-":"+")+nf(l.qty)+'</td>'+
+      '<td class="kr">'+esc(l.taker||"-")+'</td><td class="kr">'+esc(l.team||"-")+'</td>'+
+      '<td class="kr" style="color:var(--text-mute)">'+esc(l.byName||"")+'</td>'+
+      (lv(3)?'<td>'+((l.void||l.type==="cancel")?"-":
+        '<button class="btn btn-danger btn-sm lvoid" data-id="'+l.id+'">정정</button>')+'</td>':"")+
+      '</tr>'; }).join("")||'<tr><td colspan="8" class="empty">조건에 맞는 로그가 없습니다.</td></tr>';
+  return {co:co,
+    sub:nf(rows.length)+'건 · 불출 합계 '+nf(outQty)+' · 로그는 삭제되지 않으며 정정 시 이력이 함께 남습니다',
+    top:top, body:body,
+    hint:rows.length>400?'화면에는 400건만 표시됩니다. 전체는 Excel로 내보내세요.':''};
 }
-
-function bindLogs(){
-  var map={f_item:"item",f_type:"type",f_from:"from",f_to:"to"};
-  Object.keys(map).forEach(function(id){ var el=document.getElementById(id);
-    if(el) el.onchange=function(){ S.logFilter[map[id]]=el.value; render(); }; });
-  var t=document.getElementById("f_team");
-  if(t) t.oninput=function(){ S.logFilter.team=t.value; var p=t.selectionStart; render();
-    var n=document.getElementById("f_team"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
-  var r=document.getElementById("f_reset");
-  if(r) r.onclick=function(){ S.logFilter={item:"",team:"",type:"",from:"",to:""}; render(); };
-
+function bindLogVoid(){
   document.querySelectorAll(".lvoid").forEach(function(el){ el.onclick=async function(){
     var l=S.logs.filter(function(x){return x.id===el.dataset.id;})[0]; if(!l) return;
     var reason=prompt("정정 사유를 입력하세요. 원본은 삭제되지 않고 취소 이력이 함께 남습니다.");
@@ -1304,6 +1299,49 @@ function bindLogs(){
       void_by:S.user.name,void_at:Date.now()}).eq("id",l.id); },"정정 처리되었습니다.");
     await pull(); render();
   }; });
+}
+function viewLogs(){
+  var f=S.logFilter;
+  var d=logsCalc();
+  var co=d.co;
+  var itOpts='<option value="">전체 품목</option>'+itemsOf(co).map(function(x){
+    return '<option value="'+x.item.id+'" '+(f.item===x.item.id?"selected":"")+'>'+esc(x.item.name)+'</option>'; }).join("");
+  var tyOpts='<option value="">전체 구분</option>'+
+    [["out","불출"],["in","입고"],["ret","반납"],["adj","실사조정"],["cancel","정정취소"]].map(function(t){
+      return '<option value="'+t[0]+'" '+(f.type===t[0]?"selected":"")+'>'+t[1]+'</option>'; }).join("");
+  return companyBar()+
+  '<div class="panel"><div class="panel-head"><div><h2>'+esc(co)+' 입출고 로그</h2>'+
+    '<div class="sub" id="lgSub">'+d.sub+'</div></div>'+
+    (canExport()?'<button class="btn btn-ghost btn-sm" id="csvLog">Excel 내보내기</button>':"")+'</div>'+
+    '<div class="panel-body">'+
+      '<div class="filters">'+
+        '<select id="f_item">'+itOpts+'</select><select id="f_type">'+tyOpts+'</select>'+
+        '<input type="text" id="f_team" placeholder="작업팀 검색" value="'+esc(f.team)+'">'+
+        '<input type="date" id="f_from" value="'+f.from+'"><input type="date" id="f_to" value="'+f.to+'">'+
+        '<button class="btn btn-ghost btn-sm" id="f_reset">초기화</button></div>'+
+      '<div id="lgTop" style="margin-bottom:12px;">'+d.top+'</div>'+
+      '<div class="tablewrap"><table><thead><tr><th>일시</th><th>구분</th><th>품목</th><th>수량</th>'+
+        '<th>담당자</th><th>작업팀</th><th>등록자</th>'+(lv(3)?"<th>정정</th>":"")+'</tr></thead>'+
+        '<tbody id="lgBody">'+d.body+'</tbody></table></div>'+
+      '<div class="hint" id="lgHint">'+d.hint+'</div>'+
+    '</div></div>';
+}
+
+function bindLogs(){
+  var map={f_item:"item",f_type:"type",f_from:"from",f_to:"to"};
+  Object.keys(map).forEach(function(id){ var el=document.getElementById(id);
+    if(el) el.onchange=function(){ S.logFilter[map[id]]=el.value; render(); }; });
+  var t=document.getElementById("f_team");
+  if(t) t.oninput=function(){ S.logFilter.team=t.value;
+    var d=logsCalc();
+    var b=document.getElementById("lgBody"); if(b) b.innerHTML=d.body;
+    var sb=document.getElementById("lgSub"); if(sb) sb.textContent=d.sub;
+    var tp=document.getElementById("lgTop"); if(tp) tp.innerHTML=d.top;
+    var h=document.getElementById("lgHint"); if(h) h.textContent=d.hint;
+    bindLogVoid(); };
+  var r=document.getElementById("f_reset");
+  if(r) r.onclick=function(){ S.logFilter={item:"",team:"",type:"",from:"",to:""}; render(); };
+  bindLogVoid();
 
   var c=document.getElementById("csvLog");
   if(c) c.onclick=function(){
@@ -1402,6 +1440,24 @@ function bindStk(){
 /* ══════════════════════════════════════════════════════════
    업체 취급 품목 관리 (Lv.2 이상)
    ══════════════════════════════════════════════════════════ */
+function clBoxHTML(){
+  var co=curCo();
+  var q=(S.clSearch||"").toLowerCase(), cat=S.clCat||"";
+  var pool=S.items.filter(function(i){
+    if(stockOf(co,i.id)) return false;
+    if(cat&&(i.category||"")!==cat) return false;
+    if(!q) return true;
+    return (i.name+" "+(i.spec||"")+" "+(i.code||"")).toLowerCase().indexOf(q)>=0; });
+  var shown=pool.slice(0,40);
+  return '<div class="chkgrid">'+shown.map(function(i){
+    return '<label class="chk"><input type="checkbox" class="addChk" value="'+esc(i.id)+'"> '+
+      '<span style="font-size:12.5px;">'+esc(i.name)+
+      (i.spec?' <span style="color:var(--text-mute);font-size:11px;">'+esc(i.spec)+'</span>':"")+
+      ' <span style="color:var(--text-mute);font-family:IBM Plex Mono;font-size:10.5px;">('+esc(i.unit)+')</span></span></label>'; }).join("")+'</div>'+
+    (pool.length>40?'<div class="hint">'+nf(pool.length)+'개 중 40개 표시 — 검색어로 좁혀 주세요.</div>':"")+
+    (shown.length?'<button class="btn btn-primary" id="addSel" style="margin-top:14px;">선택 품목 등록</button>'
+      :'<div class="empty">검색 결과가 없습니다.</div>');
+}
 function viewColist(){
   var co=curCo();
   var have={}; S.stocks.filter(function(s){return s.company===co;}).forEach(function(s){ have[s.itemId]=s; });
@@ -1430,22 +1486,7 @@ function viewColist(){
         '<select id="clCat"><option value="">전체 분류</option>'+catList().map(function(c){
           return '<option value="'+esc(c)+'" '+(c===(S.clCat||"")?"selected":"")+'>'+esc(c)+'</option>'; }).join("")+'</select>'+
         '<input type="text" id="clSearch" placeholder="자재명·규격·자재번호 검색" value="'+esc(S.clSearch||"")+'" style="flex:2;"></div>'+
-      (function(){
-        var q=(S.clSearch||"").toLowerCase(), cat=S.clCat||"";
-        var pool=avail.filter(function(i){
-          if(cat&&(i.category||"")!==cat) return false;
-          if(!q) return true;
-          return (i.name+" "+(i.spec||"")+" "+(i.code||"")).toLowerCase().indexOf(q)>=0; });
-        var shown=pool.slice(0,40);
-        return '<div class="chkgrid">'+shown.map(function(i){
-          return '<label class="chk"><input type="checkbox" class="addChk" value="'+esc(i.id)+'"> '+
-            '<span style="font-size:12.5px;">'+esc(i.name)+
-            (i.spec?' <span style="color:var(--text-mute);font-size:11px;">'+esc(i.spec)+'</span>':"")+
-            ' <span style="color:var(--text-mute);font-family:IBM Plex Mono;font-size:10.5px;">('+esc(i.unit)+')</span></span></label>'; }).join("")+'</div>'+
-          (pool.length>40?'<div class="hint">'+nf(pool.length)+'개 중 40개 표시 — 검색어로 좁혀 주세요.</div>':"")+
-          (shown.length?'<button class="btn btn-primary" id="addSel" style="margin-top:14px;">선택 품목 등록</button>'
-            :'<div class="empty">검색 결과가 없습니다.</div>');
-      })()+
+      '<div id="clBox">'+clBoxHTML()+'</div>'+
     '</div></div>';
 }
 
@@ -1454,8 +1495,10 @@ function bindColist(){
   var cc=document.getElementById("clCat");
   if(cc) cc.onchange=function(){ S.clCat=cc.value; render(); };
   var cq=document.getElementById("clSearch");
-  if(cq) cq.oninput=function(){ S.clSearch=cq.value; var p=cq.selectionStart; render();
-    var n=document.getElementById("clSearch"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
+  if(cq) cq.oninput=function(){ S.clSearch=cq.value;
+    var box=document.getElementById("clBox");
+    if(box){ box.innerHTML=clBoxHTML(); bindClAdd(); } };
+  bindClAdd();
   document.querySelectorAll(".cSave").forEach(function(el){ el.onclick=async function(){
     var tr=el.closest("tr");
     var row={id:stockKey(co,el.dataset.id),company:co,itemId:el.dataset.id,
@@ -1469,6 +1512,9 @@ function bindColist(){
     if(await push(function(){ return db.from("stocks").delete().eq("id",stockKey(co,el.dataset.id)); },"제외되었습니다.")){
       await pull(); render(); }
   }; });
+}
+function bindClAdd(){
+  var co=curCo();
   var a=document.getElementById("addSel");
   if(a) a.onclick=async function(){
     var ids=[];
@@ -1577,19 +1623,36 @@ function bindGrant(){
 /* ══════════════════════════════════════════════════════════
    품목 마스터 (Lv.4 전용)
    ══════════════════════════════════════════════════════════ */
-function viewItems(){
+function itemRowsData(){
   var cat=S.itmCat||"", q=(S.itmSearch||"").toLowerCase();
   var pool=S.items.filter(function(i){
     if(cat && (i.category||"")!==cat) return false;
     if(!q) return true;
     return (i.name+" "+(i.spec||"")+" "+(i.code||"")).toLowerCase().indexOf(q)>=0;
   });
-  var shown=pool.slice(0,80);
   var usage={}; S.stocks.forEach(function(st){ usage[st.itemId]=(usage[st.itemId]||0)+1; });
+  var rows=pool.slice(0,80).map(function(i){ return '<tr>'+
+    '<td style="font-size:11px;">'+esc(i.code||i.id)+'</td>'+
+    '<td><select class="mC" style="width:96px;">'+['<option value="">-</option>'].concat(catList().map(function(c){
+      return '<option value="'+esc(c)+'" '+(c===i.category?"selected":"")+'>'+esc(c)+'</option>'; })).join("")+'</select></td>'+
+    '<td><input type="text" class="mN" value="'+esc(i.name)+'" style="width:190px"></td>'+
+    '<td><input type="text" class="mS" value="'+esc(i.spec||"")+'" style="width:150px"></td>'+
+    '<td><input type="text" class="mU" value="'+esc(i.unit)+'" style="width:56px"></td>'+
+    '<td><input type="number" class="mW" value="'+(i.price||0)+'" style="width:90px"></td>'+
+    '<td><input type="number" class="mP" value="'+(i.step||1)+'" style="width:70px"></td>'+
+    '<td>'+(usage[i.id]||0)+'</td>'+
+    '<td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm mSave" data-id="'+esc(i.id)+'">저장</button> '+
+      '<button class="btn btn-danger btn-sm mDel" data-id="'+esc(i.id)+'">삭제</button></td></tr>'; }).join("")
+    ||'<tr><td colspan="9" class="empty">검색 결과가 없습니다.</td></tr>';
+  return {rows:rows,cnt:pool.length};
+}
+function viewItems(){
+  var cat=S.itmCat||"";
+  var d=itemRowsData();
   return (S.msg.it?'<div class="msg msg-ok">'+esc(S.msg.it)+'</div>':"")+
   '<div class="msg msg-info">품목 마스터는 전체 품목 사전(현재 '+nf(S.items.length)+'종)입니다. 신규 품목 추가·단가 수정은 Lv.4만 가능합니다. <b>기본 취급 단위</b>는 불출 화면 ± 버튼의 증감폭입니다.</div>'+
   '<div class="panel"><div class="panel-head"><div><h2>품목 마스터</h2>'+
-    '<div class="sub">'+nf(pool.length)+'종 검색됨 · 80개까지 표시</div></div>'+
+    '<div class="sub"><span id="iCnt">'+nf(d.cnt)+'</span>종 검색됨 · 80개까지 표시</div></div>'+
     (canExport()?'<button class="btn btn-ghost btn-sm" id="csvItems">Excel 내보내기</button>':"")+'</div>'+
   '<div class="panel-body">'+
     '<div class="filters">'+
@@ -1598,21 +1661,8 @@ function viewItems(){
       '<input type="text" id="iSearch" placeholder="자재명·규격·자재번호 검색" value="'+esc(S.itmSearch||"")+'" style="flex:2;">'+
     '</div>'+
     '<div class="tablewrap"><table style="min-width:980px;"><thead><tr>'+
-      '<th>자재번호</th><th>분류</th><th>자재명</th><th>규격</th><th>단위</th><th>단가(원)</th><th>취급단위</th><th>사용</th><th></th></tr></thead><tbody>'+
-    (shown.map(function(i){ return '<tr>'+
-      '<td style="font-size:11px;">'+esc(i.code||i.id)+'</td>'+
-      '<td><select class="mC" style="width:96px;">'+['<option value="">-</option>'].concat(catList().map(function(c){
-        return '<option value="'+esc(c)+'" '+(c===i.category?"selected":"")+'>'+esc(c)+'</option>'; })).join("")+'</select></td>'+
-      '<td><input type="text" class="mN" value="'+esc(i.name)+'" style="width:190px"></td>'+
-      '<td><input type="text" class="mS" value="'+esc(i.spec||"")+'" style="width:150px"></td>'+
-      '<td><input type="text" class="mU" value="'+esc(i.unit)+'" style="width:56px"></td>'+
-      '<td><input type="number" class="mW" value="'+(i.price||0)+'" style="width:90px"></td>'+
-      '<td><input type="number" class="mP" value="'+(i.step||1)+'" style="width:70px"></td>'+
-      '<td>'+(usage[i.id]||0)+'</td>'+
-      '<td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm mSave" data-id="'+esc(i.id)+'">저장</button> '+
-        '<button class="btn btn-danger btn-sm mDel" data-id="'+esc(i.id)+'">삭제</button></td></tr>'; }).join("")
-      ||'<tr><td colspan="9" class="empty">검색 결과가 없습니다.</td></tr>')+
-    '</tbody></table></div>'+
+      '<th>자재번호</th><th>분류</th><th>자재명</th><th>규격</th><th>단위</th><th>단가(원)</th><th>취급단위</th><th>사용</th><th></th></tr></thead>'+
+      '<tbody id="iBody">'+d.rows+'</tbody></table></div>'+
     '<div style="margin-top:16px;border-top:1px solid var(--steel-line);padding-top:14px;">'+
       '<div style="font-size:12px;font-weight:700;margin-bottom:8px;">신규 품목 추가 (Lv.4)</div>'+
       '<div class="form-row">'+
@@ -1629,12 +1679,7 @@ function viewItems(){
   '</div></div>';
 }
 
-function bindItems(){
-  var cs=document.getElementById("iCat");
-  if(cs) cs.onchange=function(){ S.itmCat=cs.value; render(); };
-  var se=document.getElementById("iSearch");
-  if(se) se.oninput=function(){ S.itmSearch=se.value; var p=se.selectionStart; render();
-    var n=document.getElementById("iSearch"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
+function bindItemRowBtns(){
   document.querySelectorAll(".mSave").forEach(function(el){ el.onclick=async function(){
     var tr=el.closest("tr");
     var o={name:tr.querySelector(".mN").value.trim(),spec:tr.querySelector(".mS").value.trim(),
@@ -1650,6 +1695,17 @@ function bindItems(){
     await push(function(){ return db.from("stocks").delete().eq("item_id",el.dataset.id); });
     if(await push(function(){ return db.from("items").delete().eq("id",el.dataset.id); },"삭제되었습니다.")){
       await pullItems(); await pull(); render(); } }; });
+}
+function bindItems(){
+  var cs=document.getElementById("iCat");
+  if(cs) cs.onchange=function(){ S.itmCat=cs.value; render(); };
+  var se=document.getElementById("iSearch");
+  if(se) se.oninput=function(){ S.itmSearch=se.value;
+    var d=itemRowsData();
+    var tb=document.getElementById("iBody"); if(tb) tb.innerHTML=d.rows;
+    var c=document.getElementById("iCnt"); if(c) c.textContent=nf(d.cnt);
+    bindItemRowBtns(); };
+  bindItemRowBtns();
   var a=document.getElementById("nAdd");
   if(a) a.onclick=async function(){
     var code=document.getElementById("nC").value.trim();
