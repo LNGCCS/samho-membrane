@@ -225,8 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v4.3";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-08-21 · 한글 검색 입력 개선";
+const APP_VERSION = "v4.5";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-08-22 · 신규 품목 등록 = Lv.4+ 전용";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -1057,6 +1057,7 @@ function viewReq(){
       '<input type="month" id="rMonth" value="'+S.reqMonth+'" style="width:auto;padding:7px 9px;">'+
       '<div class="seg"><div class="segbtn '+(view==="list"?"on":"")+'" data-rv="list">신청 내역</div>'+
         '<div class="segbtn '+(view==="add"?"on":"")+'" data-rv="add">품목 찾아 신청</div></div>'+
+      (lv(2)?'<button class="btn btn-navy btn-sm" id="xlsForm">신청서 (결재용)</button>':"")+
       (canExport()?'<button class="btn btn-ghost btn-sm" id="csvReq">Excel</button>':"")+
     '</div></div>'+
   '<div class="panel-body">';
@@ -1086,7 +1087,7 @@ function viewReq(){
           return '<option value="'+esc(c)+'" '+(c===cat?"selected":"")+'>'+esc(c)+'</option>'; }).join("")+'</select>'+
         '<input type="text" id="rSearch" placeholder="자재명·규격·자재번호 검색" value="'+esc(S.reqSearch)+'" style="flex:2;">'+
       '</div>'+
-      (scope==="freq"&&!q&&!cat?'<div class="hint" style="margin-bottom:8px;">이 업체가 신청해 온 품목입니다. 새 품목은 <b>전체 품목</b>에서 찾으세요.</div>':"")+
+      (scope==="freq"&&!q&&!cat?'<div class="hint" style="margin-bottom:8px;">이 업체가 신청해 온 품목입니다. 새 품목은 <b>전체 품목</b>에서 찾고, 목록에 아예 없으면 부서 공구장에게 <b>품목 등록을 요청</b>하세요.</div>':"")+
       '<div class="tablewrap"><table style="min-width:760px;"><thead><tr>'+
         '<th>자재번호</th><th>자재명 / 규격</th><th>단위</th><th>단가</th><th style="width:100px;">신청 수량</th><th>금액</th></tr></thead>'+
         '<tbody id="rBody">'+d.rows+'</tbody></table></div>'+
@@ -1240,6 +1241,8 @@ function bindReq(){
     if(await push(function(){ return db.from("requests").upsert(rows); },targets.length+"건 발주 처리되었습니다.")){
       await pull(); render(); }
   };
+  var xf=document.getElementById("xlsForm");
+  if(xf) xf.onclick=exportRequestForm;
   var x=document.getElementById("csvReq");
   if(x) x.onclick=function(){
     var stName={req:"신청",hold:"보류",ordered:"발주완료",done:"입고완료"};
@@ -1487,7 +1490,25 @@ function viewColist(){
           return '<option value="'+esc(c)+'" '+(c===(S.clCat||"")?"selected":"")+'>'+esc(c)+'</option>'; }).join("")+'</select>'+
         '<input type="text" id="clSearch" placeholder="자재명·규격·자재번호 검색" value="'+esc(S.clSearch||"")+'" style="flex:2;"></div>'+
       '<div id="clBox">'+clBoxHTML()+'</div>'+
-    '</div></div>';
+    '</div></div>'+
+  (canManageItems()?
+  '<div class="panel"><div class="panel-head"><div><h2>카탈로그에 없는 품목 등록 <span class="lvchip lv4" style="margin-left:4px;">Lv.4+</span></h2>'+
+    '<div class="sub">품목 마스터에 새 품목을 만들면서 '+esc(co)+' 취급 품목에도 바로 추가합니다. 업체 공구장은 등록된 품목을 가져오는 것만 가능합니다.</div></div></div>'+
+    '<div class="panel-body">'+
+      '<div class="form-row" style="margin-bottom:10px;">'+
+        '<div class="field"><label>자재번호 (모르면 비워두세요)</label><input type="text" id="cvCode" placeholder="예: 61200000150"></div>'+
+        '<div class="field"><label>분류</label><select id="cvCat">'+catList().map(function(c){
+          return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join("")+'</select></div>'+
+        '<div class="field" style="flex:1.6;"><label>자재명 (필수)</label><input type="text" id="cvName" placeholder="예: 청소기 바닥흡입구"></div>'+
+      '</div>'+
+      '<div class="form-row">'+
+        '<div class="field"><label>규격</label><input type="text" id="cvSpec" placeholder="예: 내경 35Φ"></div>'+
+        '<div class="field"><label>단위</label><input type="text" id="cvUnit" placeholder="EA"></div>'+
+        '<div class="field"><label>단가(원, 모르면 0)</label><input type="number" id="cvPrice" value="0"></div>'+
+        '<button class="btn btn-primary" id="cvAdd">품목 등록</button>'+
+      '</div>'+
+      '<div class="hint" style="margin-top:8px;">품목명·단위·단가 등 기본 정보의 수정·삭제는 <b>품목 마스터</b>에서 관리합니다.</div>'+
+    '</div></div>':"");
 }
 
 function bindColist(){
@@ -1498,7 +1519,7 @@ function bindColist(){
   if(cq) cq.oninput=function(){ S.clSearch=cq.value;
     var box=document.getElementById("clBox");
     if(box){ box.innerHTML=clBoxHTML(); bindClAdd(); } };
-  bindClAdd();
+  bindClAdd(); bindClNew();
   document.querySelectorAll(".cSave").forEach(function(el){ el.onclick=async function(){
     var tr=el.closest("tr");
     var row={id:stockKey(co,el.dataset.id),company:co,itemId:el.dataset.id,
@@ -1512,6 +1533,29 @@ function bindColist(){
     if(await push(function(){ return db.from("stocks").delete().eq("id",stockKey(co,el.dataset.id)); },"제외되었습니다.")){
       await pull(); render(); }
   }; });
+}
+function bindClNew(){
+  var co=curCo();
+  var b=document.getElementById("cvAdd");
+  if(b) b.onclick=async function(){
+    if(!canManageItems()){ toast("신규 품목 등록은 부서 공구장(Lv.4) 이상만 가능합니다.",true); return; }
+    var name=document.getElementById("cvName").value.trim();
+    if(!name){ alert("자재명을 입력하세요."); return; }
+    var code=document.getElementById("cvCode").value.trim();
+    var id=code||uid();
+    if(itemById(id)){
+      alert("이미 존재하는 자재번호입니다: "+id+"\n[품목 추가]에서 검색해 취급 품목으로 등록하세요."); return; }
+    var o={id:id,code:code,category:document.getElementById("cvCat").value,
+      name:name,spec:document.getElementById("cvSpec").value.trim(),
+      unit:document.getElementById("cvUnit").value.trim()||"EA",
+      price:+document.getElementById("cvPrice").value||0,step:1};
+    if(!await push(function(){ return db.from("items").insert(M.itemOut(o)); })) return;
+    await push(function(){ return db.from("stocks").insert(
+      M.stockOut({id:stockKey(co,id),company:co,itemId:id,qty:0,minQty:0})); },
+      name+" 등록 완료 · "+co+" 취급 품목에 추가되었습니다.");
+    S.msg.col=name+" 품목이 등록되고 취급 품목에 추가되었습니다. 보유량을 입력하세요.";
+    await pullItems(); await pull(); render();
+  };
 }
 function bindClAdd(){
   var co=curCo();
@@ -1748,14 +1792,15 @@ function viewMe(){
      ["입고·반납 (증가)",lv(2)],
      ["부자재 신청 (월별)",canRequest()],
      ["긴급 신청 접수",canRequest()],
-     ["업체 취급 품목 관리",lv(2)],
+     ["업체 취급 품목 관리 (마스터에서 가져오기)",lv(2)],
      ["재고 실사",lv(2)],
      ["전 업체 조회·관리",lv(3)],
+     ["신청서 (결재용) 출력",lv(2)],
      ["신청 조정·발주 처리",lv(3)],
      ["발주 품목 입고 확인",canReceive()],
      ["로그 정정",lv(3)],
      ["Excel 내보내기",canExport()],
-     ["품목 마스터 관리",canManageItems()],
+     ["품목 마스터 (신규 등록·수정·삭제)",canManageItems()],
      ["권한 부여",canGrant()]].map(function(r){
        return '<tr><td class="kr">'+r[0]+'</td><td>'+(r[1]
          ?'<span class="tag t-ok">가능</span>':'<span class="tag t-grey">불가</span>')+'</td></tr>'; }).join("")+
@@ -1793,6 +1838,59 @@ function download(name,content,mime){
     setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500);
   }catch(e){ alert("다운로드가 차단되었습니다. 브라우저 설정을 확인하세요."); }
 }
+/* 결재란이 포함된 업체별 부자재 신청서 (.xls) — Lv.2 이상 */
+function exportRequestForm(){
+  if(!lv(2)){ toast("권한이 없습니다.",true); return; }
+  var co=curCo(), m=S.reqMonth;
+  var mm=parseInt(m.split("-")[1],10);
+  var rows=monthReqs(co).filter(function(r){ return finalQty(r)>0||r.requestedQty!=null; })
+    .map(function(r){ var it=itemById(r.itemId)||{}; return {r:r,it:it}; })
+    .sort(function(a,b){ return (a.it.name||a.r.itemName).localeCompare(b.it.name||b.r.itemName,"ko"); });
+  if(!rows.length){ toast(m+" 신청 내역이 없습니다.",true); return; }
+  var d90=Date.now()-90*864e5;
+  var today=new Date();
+  var dateStr=today.getFullYear()+". "+String(today.getMonth()+1).padStart(2,"0")+". "+String(today.getDate()).padStart(2,"0");
+  var td='border:.5pt solid #000;padding:4px 6px;font-size:10pt;vertical-align:middle;';
+  var th=td+'background:#eeeeee;font-weight:bold;text-align:center;';
+  var body=rows.map(function(x,idx){
+    var r=x.r, it=x.it;
+    var st=stockOf(co,r.itemId);
+    var c90=S.logs.filter(function(l){ return l.type==="out"&&!l.void&&l.itemId===r.itemId&&l.company===co&&l.ts>=d90; })
+      .reduce(function(sm,l){return sm+l.qty;},0);
+    var avg=Math.round(c90/3);
+    var basis=[];
+    if(avg>0) basis.push("월평균 "+nf(avg)+(it.unit||"")+" 소모(90일 실측)");
+    if(r.comment) basis.push(r.comment);
+    return '<tr>'+
+      '<td style="'+td+'text-align:center;">'+(idx+1)+'</td>'+
+      '<td style="'+td+'text-align:center;mso-number-format:\'@\';">'+esc(it.code||r.itemId)+'</td>'+
+      '<td style="'+td+'">'+esc(it.name||r.itemName)+'</td>'+
+      '<td style="'+td+'">'+esc(it.spec||"")+'</td>'+
+      '<td style="'+td+'text-align:right;">'+(st?nf(st.qty)+" "+esc(it.unit||""):"")+'</td>'+
+      '<td style="'+td+'text-align:right;font-weight:bold;">'+nf(r.requestedQty||0)+" "+esc(it.unit||"")+'</td>'+
+      '<td style="'+td+'">'+esc(basis.join(" / "))+'</td>'+
+      '<td style="'+td+'text-align:right;color:#c00000;">'+(r.adjustedQty==null?"":nf(r.adjustedQty)+" "+esc(it.unit||""))+'</td>'+
+      '</tr>';
+  }).join("");
+  var html='\uFEFF<html><head><meta charset="utf-8"></head><body>'+
+    '<table style="border-collapse:collapse;width:760pt;">'+
+    '<tr><td colspan="6" style="font-size:16pt;font-weight:bold;text-align:center;padding:8px;">('+esc(co)+') ('+mm+')월 부자재 신청서</td>'+
+      '<td colspan="2" rowspan="2" style="vertical-align:top;">'+
+        '<table style="border-collapse:collapse;margin-left:auto;">'+
+        '<tr><td rowspan="2" style="'+td+'width:24pt;text-align:center;background:#eeeeee;font-weight:bold;">결<br>재</td>'+
+            '<td style="'+td+'width:90pt;text-align:center;background:#eeeeee;font-weight:bold;height:20pt;">직책과장</td></tr>'+
+        '<tr><td style="'+td+'height:48pt;"></td></tr>'+
+        '</table></td></tr>'+
+    '<tr><td colspan="6" style="text-align:right;font-size:10pt;padding:4px;">작성일 : '+dateStr+'</td></tr>'+
+    '<tr>'+
+      '<th style="'+th+'width:30pt;">순번</th><th style="'+th+'width:90pt;">자재번호</th>'+
+      '<th style="'+th+'width:150pt;">품 명</th><th style="'+th+'width:150pt;">규 격</th>'+
+      '<th style="'+th+'width:70pt;">현 재고량</th><th style="'+th+'width:70pt;">신청수량</th>'+
+      '<th style="'+th+'width:150pt;">산출근거</th><th style="'+th+'width:80pt;">부서검토<br>(수량)</th></tr>'+
+    body+'</table></body></html>';
+  download("부자재신청서_"+co+"_"+m+".xls", html, "application/vnd.ms-excel");
+}
+
 function exportCSV(name,head,rows){
   if(!canExport()){ toast("데이터 내보내기 권한이 없습니다.",true); return; }
   var q=function(v){ var s=String(v==null?"":v);
