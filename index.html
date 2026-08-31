@@ -225,8 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v4.5";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-08-22 · 신규 품목 등록 = Lv.4+ 전용";
+const APP_VERSION = "v4.6";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-08-28 · 1,000건 표시 제한 해제";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -340,31 +340,42 @@ var M = {
 function setSync(v){ S.sync=v; var el=document.getElementById("syncDot");
   if(el) el.className="syncdot"+(v==="busy"?" busy":v==="err"?" err":""); }
 
+/* Supabase는 요청당 최대 1,000행만 반환하므로, 1,000행씩 나눠서 전부 받아온다 */
+async function fetchAll(table, orderCol, asc, cap){
+  var out=[], page=1000, from=0;
+  while(true){
+    var q=db.from(table).select("*").order(orderCol||"id",{ascending:asc!==false});
+    var r=await q.range(from, from+page-1);
+    if(r.error) throw r.error;
+    out=out.concat(r.data||[]);
+    if(!r.data || r.data.length<page) break;
+    if(cap && out.length>=cap) break;
+    from+=page;
+  }
+  return cap? out.slice(0,cap) : out;
+}
 async function pullItems(){
   /* 품목 마스터는 수천 건이라 20초 폴링에서 제외하고 필요 시에만 새로 받습니다 */
-  var r=await db.from("items").select("*").order("name");
-  if(r.error){ console.error(r.error); LAST_ERR=r.error; return false; }
-  S.items=(r.data||[]).map(M.itemIn);
-  return true;
+  try{ S.items=(await fetchAll("items","name")).map(M.itemIn); return true; }
+  catch(e){ console.error(e); LAST_ERR=e; return false; }
 }
 async function pull(){
   setSync("busy");
   try{
     var res = await Promise.all([
-      db.from("users").select("*"),
-      db.from("stocks").select("*"),
-      db.from("logs").select("*").order("ts",{ascending:false}).limit(5000),
-      db.from("requests").select("*"),
-      db.from("emergencies").select("*").order("ts",{ascending:false}),
-      db.from("stocktakes").select("*").order("ts",{ascending:false})
+      fetchAll("users","id"),
+      fetchAll("stocks","id"),
+      fetchAll("logs","ts",false,5000),
+      fetchAll("requests","id"),
+      fetchAll("emergencies","ts",false),
+      fetchAll("stocktakes","ts",false)
     ]);
-    for(var i=0;i<res.length;i++){ if(res[i].error) throw res[i].error; }
-    S.users=(res[0].data||[]).map(M.userIn);
-    S.stocks=(res[1].data||[]).map(M.stockIn);
-    S.logs=(res[2].data||[]).map(M.logIn);
-    S.requests=(res[3].data||[]).map(M.reqIn);
-    S.emergencies=(res[4].data||[]).map(M.emgIn);
-    S.stocktakes=(res[5].data||[]).map(M.stkIn);
+    S.users=res[0].map(M.userIn);
+    S.stocks=res[1].map(M.stockIn);
+    S.logs=res[2].map(M.logIn);
+    S.requests=res[3].map(M.reqIn);
+    S.emergencies=res[4].map(M.emgIn);
+    S.stocktakes=res[5].map(M.stkIn);
     if(S.user){ var me=S.users.filter(function(x){return x.id===S.user.id;})[0]; if(me) S.user=me; }
     S.lastSync=Date.now(); setSync("ok"); LAST_ERR=null; return true;
   }catch(err){
