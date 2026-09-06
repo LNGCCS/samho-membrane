@@ -225,8 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v5.2";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-09-06 · 납품 배분 탭 (품목·월로 업체 찾기)";
+const APP_VERSION = "v5.4";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-09-07 · 추가 신청 줄 (기존 신청 보존) · 긴급 승인 연동";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -963,8 +963,23 @@ function bindEmg(){
   };
   var setStatus=async function(id,status){
     var e=S.emergencies.filter(function(x){return x.id===id;})[0]; if(!e) return;
+    var addReq=false, m=curMonth();
+    if(status==="approved"){
+      var linked=S.requests.some(function(r){ return (r.comment||"").indexOf("긴급 "+e.id)>=0; });
+      if(!linked&&(e.company!==DEPT_ROOM||lv(4))){
+        var ex=itemLines(e.company,e.itemId,m);
+        addReq=confirm("승인과 함께 "+e.company+"의 "+m+" 부자재 신청에 "+e.itemName+" "+nf(e.qty)+"을(를) 추가 신청으로 등록할까요?"+
+          (ex.length?"\n(기존 신청 "+ex.length+"줄은 그대로 두고 별도 줄로 추가됩니다)":"")+"\n\n등록하면 구매 취합·납품 배분에 바로 반영됩니다.");
+      }
+    }
     e.status=status; e.handledBy=S.user.name;
-    if(await push(function(){ return db.from("emergencies").upsert(M.emgOut(e)); })){ await pull(); render(); }
+    if(!await push(function(){ return db.from("emergencies").upsert(M.emgOut(e)); })) return;
+    if(addReq){
+      var ln=newLine(e.company,e.itemId,m);
+      ln.requestedQty=e.qty; ln.comment="긴급 "+e.id+" 반영 · "+e.category;
+      if(await push(function(){ return db.from("requests").insert(M.reqOut(ln)); },"긴급 신청이 "+m+" 부자재 신청에 추가되었습니다.")){}
+    }
+    await pull(); render();
   };
   document.querySelectorAll(".eOk").forEach(function(el){ el.onclick=function(){ setStatus(el.dataset.id,"approved"); }; });
   document.querySelectorAll(".eNo").forEach(function(el){ el.onclick=function(){ setStatus(el.dataset.id,"rejected"); }; });
@@ -1014,7 +1029,7 @@ function setDraft(itemId,val){
   var all=loadDrafts(), d=all[draftKey()]||{};
   if(val===""||val==null){
     /* 이미 저장된 신청을 비우는 경우는 "삭제 의도"로 기억, 새 품목을 비우면 그냥 제거 */
-    var exists=S.requests.some(function(r){ return r.id===draftKey()+"|"+itemId; });
+    var exists=!!editableLine(curCo(),itemId);
     if(exists) d[itemId]=""; else delete d[itemId];
   } else d[itemId]=+val;
   all[draftKey()]=d; ls("bz_draft",JSON.stringify(all));
@@ -1046,6 +1061,20 @@ function pendingCell(p,unit){
   return out.join(" ")+'<div style="font-size:10px;color:var(--text-mute);margin-top:2px;">'+
     esc(p.months.join(", "))+'</div>';
 }
+/* ── 추가 신청 줄: 같은 월·업체·품목에 이미 발주된 줄이 있으면 "|#2, |#3" 로 별도 줄 생성 ── */
+function lineSeq(id){ var m=/\|#(\d+)$/.exec(id||""); return m?+m[1]:1; }
+function itemLines(co,itemId,month){ var m=month||S.reqMonth;
+  return S.requests.filter(function(r){ return r.month===m&&r.company===co&&r.itemId===itemId; })
+    .sort(function(a,b){ return lineSeq(a.id)-lineSeq(b.id); }); }
+function editableLine(co,itemId,month){ return itemLines(co,itemId,month).filter(function(r){ return r.status==="req"; })[0]||null; }
+function newLineId(co,itemId,month){ var m=month||S.reqMonth, ls=itemLines(co,itemId,m);
+  if(!ls.length) return m+"|"+co+"|"+itemId;
+  var mx=Math.max.apply(null,ls.map(function(r){ return lineSeq(r.id); })); return m+"|"+co+"|"+itemId+"|#"+(mx+1); }
+function newLine(co,itemId,month){ var m=month||S.reqMonth;
+  return {id:newLineId(co,itemId,m),month:m,company:co,itemId:itemId,itemName:(itemById(itemId)||{}).name||"",
+    requestedQty:null,adjustedQty:null,comment:"",status:"req",orderedAt:null,receivedAt:null,receivedQty:0,
+    updatedBy:S.user.id,updatedAt:Date.now()}; }
+function seqTag(r){ var n=lineSeq(r.id); return n>1?' <span class="tag t-grey" title="원 신청과 별도로 추가된 신청">추가 #'+n+'</span>':""; }
 function monthReqs(co){
   return S.requests.filter(function(r){ return r.month===S.reqMonth && r.company===co; });
 }
@@ -1072,18 +1101,23 @@ function reqAddData(){
   var lim=S.reqLimit||60;
   var haveReq={}; reqs.forEach(function(r){ haveReq[r.itemId]=r; });
   var rows=pool.slice(0,lim).map(function(i){
-    var r=haveReq[i.id];
-    var val=(i.id in dr)?dr[i.id]:(r?(r.requestedQty==null?"":r.requestedQty):"");
-    var lock=r&&!reqEditable(r);
-    var lockTag={ordered:'<span class="tag t-ret">발주됨</span>',done:'<span class="tag t-ok">입고완료</span>',hold:'<span class="tag t-warn">보류</span>'};
+    var lines=itemLines(co,i.id), ed=editableLine(co,i.id);
+    var locked=lines.filter(function(l){ return l.status!=="req"; });
+    var val=(i.id in dr)?dr[i.id]:(ed?(ed.requestedQty==null?"":ed.requestedQty):"");
+    var lockTag={ordered:'t-ret',done:'t-ok',hold:'t-warn'}, lockName={ordered:'발주',done:'입고',hold:'보류'};
+    var lockHtml=locked.map(function(l){ return '<span class="tag '+lockTag[l.status]+'" style="margin-right:3px;">'+lockName[l.status]+' '+nf(finalQty(l))+'</span>'; }).join("");
+    var canEdit=reqEditable(null);
     var pd=pendingOf(co,i.id);
     var drafted=(i.id in dr);
     return '<tr'+(pd.ordered?' style="background:#fdf6f4;"':(drafted?' style="background:#fffbf3;"':""))+'><td style="font-size:11px;">'+esc(i.code||i.id)+'</td>'+
       '<td class="kr"><b>'+esc(i.name)+'</b>'+(i.spec?'<div style="font-size:11px;color:var(--text-mute);">'+esc(i.spec)+'</div>':"")+'</td>'+
       '<td>'+esc(i.unit)+'</td><td>'+won(i.price)+'</td>'+
       '<td>'+pendingCell(pd,i.unit)+'</td>'+
-      '<td>'+(lock?(lockTag[r.status]||'<span class="tag t-grey">잠금</span>')
-        :'<input type="number" min="0" class="rq" data-id="'+esc(i.id)+'" data-pend="'+pd.ordered+'" data-nm="'+esc(i.name)+'" value="'+val+'" style="width:88px">')+'</td>'+
+      '<td>'+(lockHtml?'<div style="margin-bottom:3px;">'+lockHtml+'</div>':"")+
+        (canEdit?'<input type="number" min="0" class="rq" data-id="'+esc(i.id)+'" data-pend="'+pd.ordered+'" data-nm="'+esc(i.name)+'" value="'+val+'"'+
+          (locked.length&&!ed?' placeholder="추가 수량"':"")+' style="width:88px">'+
+          (locked.length&&!ed?'<div style="font-size:9.5px;color:var(--accent);">추가 신청으로 등록</div>':"")
+          :'<span class="tag t-grey">수정 불가</span>')+'</td>'+
       '<td class="rAmt" data-id="'+esc(i.id)+'" data-price="'+(i.price||0)+'">'+
         (val?won(val*(i.price||0)):"-")+'</td></tr>';
   }).join("")||'<tr><td colspan="7" class="empty">'+
@@ -1203,7 +1237,7 @@ function viewReq(){
     /* ── 신청 내역 + 발주/입고 처리 ── */
     var rows=reqs.filter(function(r){ return finalQty(r)>0 || r.requestedQty!=null || r.adjustedQty!=null; })
       .map(function(r){ var it=itemById(r.itemId)||{}; return {r:r,it:it}; })
-      .sort(function(a,b){ return (a.it.name||a.r.itemName).localeCompare(b.it.name||b.r.itemName,"ko"); });
+      .sort(function(a,b){ return (a.it.name||a.r.itemName).localeCompare(b.it.name||b.r.itemName,"ko")||lineSeq(a.r.id)-lineSeq(b.r.id); });
     var canOrder=rows.filter(function(x){ return x.r.status==="req"&&finalQty(x.r)>0; }).length;
     body='<div class="tablewrap"><table style="min-width:900px;"><thead><tr>'+
       '<th>자재명 / 규격</th><th>단위</th><th>단가</th><th>신청</th><th>조정'+(lv(3)?"":" (관리자)")+'</th>'+
@@ -1212,7 +1246,7 @@ function viewReq(){
       var r=x.r, it=x.it, fq=finalQty(r), amt=fq*(it.price||0);
       var edit=reqEditable(r), adm=lv(3)&&canEditCo();
       return '<tr>'+
-        '<td class="kr"><b>'+esc(it.name||r.itemName)+'</b>'+
+        '<td class="kr"><b>'+esc(it.name||r.itemName)+'</b>'+seqTag(r)+
           (it.spec?'<div style="font-size:11px;color:var(--text-mute);">'+esc(it.spec)+'</div>':"")+
           '<div style="font-size:10px;color:#9aa9b6;">'+esc(it.code||r.itemId)+'</div>'+
           (function(){ var pd=pendingOf(co,r.itemId);
@@ -1222,32 +1256,32 @@ function viewReq(){
           '</td>'+
         '<td>'+esc(it.unit||"")+'</td><td>'+won(it.price)+'</td>'+
         '<td>'+(edit&&!lv(3)
-          ?'<input type="number" min="0" class="rq" data-id="'+esc(r.itemId)+'" value="'+(r.requestedQty==null?"":r.requestedQty)+'" style="width:78px">'
+          ?'<input type="number" min="0" class="rq" data-line="'+esc(r.id)+'" value="'+(r.requestedQty==null?"":r.requestedQty)+'" style="width:78px">'
           :nf(r.requestedQty||0))+'</td>'+
         '<td>'+(adm
-          ?'<input type="number" min="0" class="ra" data-id="'+esc(r.itemId)+'" value="'+(r.adjustedQty==null?"":r.adjustedQty)+'" style="width:78px">'
+          ?'<input type="number" min="0" class="ra" data-line="'+esc(r.id)+'" value="'+(r.adjustedQty==null?"":r.adjustedQty)+'" style="width:78px">'
           :(r.adjustedQty==null?"-":nf(r.adjustedQty)))+'</td>'+
         '<td style="white-space:nowrap;">'+won(amt)+'</td>'+
         '<td>'+(adm
-          ?'<input type="text" class="rc" data-id="'+esc(r.itemId)+'" value="'+esc(r.comment||"")+'" placeholder="예: 납품 지연, 9월 초 예정" style="width:150px">'
+          ?'<input type="text" class="rc" data-line="'+esc(r.id)+'" value="'+esc(r.comment||"")+'" placeholder="예: 납품 지연, 9월 초 예정" style="width:150px">'
           :'<span class="kr" style="font-size:12px;">'+esc(r.comment||"-")+'</span>')+'</td>'+
         '<td>'+reqStatusTag(r)+'</td>'+
         '<td style="white-space:nowrap;">'+
           (adm&&r.status!=="done"&&fq>0
             ?(r.status!=="ordered"
-              ?'<button class="btn btn-navy btn-sm rOrd" data-id="'+esc(r.itemId)+'">발주</button> '
+              ?'<button class="btn btn-navy btn-sm rOrd" data-line="'+esc(r.id)+'">발주</button> '
               :"")+
              (r.status==="ordered"&&canReceive()
-              ?'<button class="btn btn-primary btn-sm rRecv" data-id="'+esc(r.itemId)+'">입고</button> '
+              ?'<button class="btn btn-primary btn-sm rRecv" data-line="'+esc(r.id)+'">입고</button> '
               :"")+
              (r.status==="req"
-              ?'<button class="btn btn-ghost btn-sm rHold" data-id="'+esc(r.itemId)+'">보류</button>'
-              :r.status==="hold"?'<button class="btn btn-ghost btn-sm rUnhold" data-id="'+esc(r.itemId)+'">보류 해제</button>':"")
+              ?'<button class="btn btn-ghost btn-sm rHold" data-line="'+esc(r.id)+'">보류</button>'
+              :r.status==="hold"?'<button class="btn btn-ghost btn-sm rUnhold" data-line="'+esc(r.id)+'">보류 해제</button>':"")
             :"")+
           (!lv(3)&&r.status==="ordered"
             ?'<span style="font-size:11px;color:var(--text-mute);">입고 대기</span>':"")+
           (((adm&&(r.status==="req"||r.status==="hold"))||(!lv(3)&&edit&&r.status==="req"))
-            ?' <button class="btn btn-danger btn-sm rDel" data-id="'+esc(r.itemId)+'">삭제</button>':"")+
+            ?' <button class="btn btn-danger btn-sm rDel" data-line="'+esc(r.id)+'">삭제</button>':"")+
         '</td></tr>';
     }).join("")||'<tr><td colspan="9" class="empty">'+esc(S.reqMonth)+' 신청 내역이 없습니다. [품목 찾아 신청]에서 시작하세요.</td></tr>')+
     '</tbody></table></div>'+
@@ -1280,18 +1314,16 @@ function bindReq(){
   bindReqAddRows();
 
   var co=curCo();
-  function existing(id){ return S.requests.filter(function(z){ return z.id===S.reqMonth+"|"+co+"|"+id; })[0]; }
-  function draft(id){
-    var ex=existing(id);
-    if(ex) return {id:ex.id,month:ex.month,company:ex.company,itemId:ex.itemId,itemName:ex.itemName,
+  function lineById(id){ return S.requests.filter(function(z){ return z.id===id; })[0]; }
+  function draftLine(lineId){
+    var ex=lineById(lineId);
+    return {id:ex.id,month:ex.month,company:ex.company,itemId:ex.itemId,itemName:ex.itemName,
       requestedQty:ex.requestedQty,adjustedQty:ex.adjustedQty,comment:ex.comment,
       status:ex.status,orderedAt:ex.orderedAt,receivedAt:ex.receivedAt,receivedQty:ex.receivedQty,
       updatedBy:S.user.id,updatedAt:Date.now()};
-    return {id:S.reqMonth+"|"+co+"|"+id,month:S.reqMonth,company:co,itemId:id,
-      itemName:(itemById(id)||{}).name||"",requestedQty:null,adjustedQty:null,comment:"",
-      status:"req",orderedAt:null,receivedAt:null,receivedQty:0,
-      updatedBy:S.user.id,updatedAt:Date.now()};
   }
+  /* 품목 기준: 수정 가능한 줄이 있으면 그 줄, 없으면(전부 발주됨) 추가 신청 줄 생성 */
+  function targetFor(itemId){ var ed=editableLine(co,itemId); return ed?draftLine(ed.id):newLine(co,itemId); }
   var cp=document.getElementById("rCopyPrev");
   if(cp) cp.onclick=async function(){
     if(!coGuard()) return;
@@ -1303,7 +1335,7 @@ function bindReq(){
     if(!prev.length) return;
     if(!confirm(prevM+" 신청 품목 "+prev.length+"건을 "+S.reqMonth+" 신청으로 불러옵니다.\n수량은 지난달 확정 수량으로 채워지며, 저장 전에 수정할 수 있습니다.")) return;
     var rows=prev.map(function(r){
-      var c=draft(r.itemId); c.requestedQty=finalQty(r); return M.reqOut(c); });
+      var c=newLine(co,r.itemId); c.requestedQty=finalQty(r); return M.reqOut(c); });
     if(await push(function(){ return db.from("requests").upsert(rows); },prev.length+"건을 불러왔습니다.")){
       await pull(); S.reqView="list"; render(); }
   };
@@ -1311,20 +1343,25 @@ function bindReq(){
   if(b) b.onclick=async function(){
     var map={};
     if(!coGuard()) return;
-    var get=function(id){ if(!map[id]) map[id]=draft(id); return map[id]; };
+    var getItem=function(itemId){ if(!map[itemId]) map[itemId]=targetFor(itemId); return map[itemId]; };
+    var getLine=function(lineId){ if(!map[lineId]) map[lineId]=draftLine(lineId); return map[lineId]; };
     if(S.reqView==="add"){
-      /* 화면에 보이지 않는 품목까지 임시 저장 전체를 반영 */
+      /* 화면에 보이지 않는 품목까지 임시 저장 전체를 반영 (품목 기준) */
       var dr=getDraft();
-      Object.keys(dr).forEach(function(id){ get(id).requestedQty=(dr[id]===""||dr[id]==null)?null:+dr[id]; });
+      Object.keys(dr).forEach(function(id){ getItem(id).requestedQty=(dr[id]===""||dr[id]==null)?null:+dr[id]; });
+      document.querySelectorAll(".rq").forEach(function(i){ if(i.dataset.id) getItem(i.dataset.id).requestedQty=i.value===""?null:+i.value; });
+    } else {
+      document.querySelectorAll(".rq").forEach(function(i){ if(i.dataset.line) getLine(i.dataset.line).requestedQty=i.value===""?null:+i.value; });
+      document.querySelectorAll(".ra").forEach(function(i){ if(i.dataset.line) getLine(i.dataset.line).adjustedQty=i.value===""?null:+i.value; });
+      document.querySelectorAll(".rc").forEach(function(i){ if(i.dataset.line) getLine(i.dataset.line).comment=i.value; });
     }
-    document.querySelectorAll(".rq").forEach(function(i){ get(i.dataset.id).requestedQty=i.value===""?null:+i.value; });
-    document.querySelectorAll(".ra").forEach(function(i){ get(i.dataset.id).adjustedQty=i.value===""?null:+i.value; });
-    document.querySelectorAll(".rc").forEach(function(i){ get(i.dataset.id).comment=i.value; });
     var all=Object.keys(map).map(function(k){ return map[k]; });
     /* 수량을 비웠거나 0으로 만든 기존 신청(발주 전)은 삭제 */
-    var dels=all.filter(function(r){ var ex=existing(r.itemId);
+    var dels=all.filter(function(r){ var ex=lineById(r.id);
       return ex && !(r.requestedQty>0) && r.adjustedQty==null && !r.comment && (ex.status==="req"||ex.status==="hold"); });
-    var picked=all.filter(function(r){ return dels.indexOf(r)<0 && (r.requestedQty>0||r.adjustedQty!=null||r.comment||existing(r.itemId)); });
+    var picked=all.filter(function(r){ return dels.indexOf(r)<0 && (r.requestedQty>0||r.adjustedQty!=null||r.comment||lineById(r.id)); });
+    /* 추가 신청 줄에는 사유 표기 */
+    picked.forEach(function(r){ if(!lineById(r.id)&&lineSeq(r.id)>1&&!r.comment) r.comment="추가 신청"; });
     if(!picked.length&&!dels.length){ toast("입력된 수량이 없습니다.",true); return; }
     /* 미입고 잔량이 있는 품목을 새로 신청하면 확인 */
     var warn=picked.filter(function(r){
@@ -1352,25 +1389,26 @@ function bindReq(){
       S.msg.req="저장되었습니다."+(dels.length?" 수량이 없는 신청 "+dels.length+"건은 삭제했습니다.":"");
       S.reqView="list"; await pull(); render(); }
   };
-  async function setLine(id,fn,msg){
+  async function setLine(lineId,fn,msg){
     if(!coGuard()) return;
-    var r=draft(id); fn(r);
+    if(!lineById(lineId)) return;
+    var r=draftLine(lineId); fn(r);
     if(await push(function(){ return db.from("requests").upsert(M.reqOut(r)); },msg)){ await pull(); render(); }
   }
   document.querySelectorAll(".rOrd").forEach(function(el){ el.onclick=function(){
-    setLine(el.dataset.id,function(r){ r.status="ordered"; r.orderedAt=Date.now(); },"발주 처리되었습니다."); }; });
+    setLine(el.dataset.line,function(r){ r.status="ordered"; r.orderedAt=Date.now(); },"발주 처리되었습니다."); }; });
   document.querySelectorAll(".rHold").forEach(function(el){ el.onclick=function(){
-    setLine(el.dataset.id,function(r){ r.status="hold"; },"보류 처리되었습니다."); }; });
+    setLine(el.dataset.line,function(r){ r.status="hold"; },"보류 처리되었습니다."); }; });
   document.querySelectorAll(".rUnhold").forEach(function(el){ el.onclick=function(){
-    setLine(el.dataset.id,function(r){ r.status="req"; },"보류가 해제되었습니다."); }; });
+    setLine(el.dataset.line,function(r){ r.status="req"; },"보류가 해제되었습니다."); }; });
   document.querySelectorAll(".rRecv").forEach(function(el){ el.onclick=function(){
     if(!canReceive()){ toast("입고 확인은 부서 공구장(Lv.4) 이상만 처리할 수 있습니다.",true); return; }
-    var r=existing(el.dataset.id); if(!r) return;
+    var r=lineById(el.dataset.line); if(!r) return;
     var fq=finalQty(r);
     var v=prompt("입고된 수량을 입력하세요 (발주 "+nf(fq)+")", String(fq-(r.receivedQty||0)));
     if(v===null) return;
     var got=Math.max(0,parseInt(v,10)||0);
-    setLine(el.dataset.id,function(r2){
+    setLine(el.dataset.line,function(r2){
       r2.receivedQty=(r2.receivedQty||0)+got;
       if(r2.receivedQty>=fq){ r2.status="done"; r2.receivedAt=Date.now(); }
       else r2.status="ordered";
@@ -1378,7 +1416,7 @@ function bindReq(){
   }; });
   document.querySelectorAll(".rDel").forEach(function(el){ el.onclick=async function(){
     if(!coGuard()) return;
-    var r=existing(el.dataset.id); if(!r) return;
+    var r=lineById(el.dataset.line); if(!r) return;
     if(r.status==="ordered"||r.status==="done"){ toast("발주된 신청은 삭제할 수 없습니다.",true); return; }
     var it=itemById(r.itemId)||{};
     if(!confirm((it.name||r.itemName)+" 신청을 삭제합니다. 계속할까요?")) return;
@@ -1392,7 +1430,7 @@ function bindReq(){
     if(!targets.length) return;
     if(!confirm(targets.length+"건을 발주 완료로 표시합니다. 전산 구매 신청을 마친 뒤에만 사용하세요.")) return;
     var now=Date.now();
-    var rows=targets.map(function(r){ var c=draft(r.itemId); c.status="ordered"; c.orderedAt=now; return M.reqOut(c); });
+    var rows=targets.map(function(r){ var c=draftLine(r.id); c.status="ordered"; c.orderedAt=now; return M.reqOut(c); });
     if(await push(function(){ return db.from("requests").upsert(rows); },targets.length+"건 발주 처리되었습니다.")){
       await pull(); render(); }
   };
@@ -1434,7 +1472,9 @@ function buyData(){
     if(q&&(it.name+" "+(it.spec||"")+" "+(it.code||"")).toLowerCase().indexOf(q)<0) return;
     if(onlyOpen&&r.status!=="req") return;
     var g=byItem[r.itemId]||(byItem[r.itemId]={it:it,lines:{},total:0,amt:0,open:0,ordered:0,done:0,hold:0});
-    g.lines[r.company]=r; g.total+=fq; g.amt+=fq*(it.price||0);
+    var L=g.lines[r.company]||(g.lines[r.company]={final:0,req:0,ordered:0,done:0,hold:0,adj:false,n:0});
+    L.final+=fq; L[r.status]=(L[r.status]||0)+1; L.n++; if(r.adjustedQty!=null) L.adj=true;
+    g.total+=fq; g.amt+=fq*(it.price||0);
     if(r.status==="req") g.open++; else if(r.status==="ordered") g.ordered++; else if(r.status==="done") g.done++; else if(r.status==="hold") g.hold++;
   });
   var groups=Object.keys(byItem).map(function(k){ return byItem[k]; })
@@ -1447,11 +1487,13 @@ function buyData(){
   var rows=groups.map(function(g){
     var it=g.it;
     var cells=usedCos.map(function(c){
-      var r=g.lines[c]; if(!r) return '<td style="text-align:right;color:#c9d3db;">·</td>';
-      var st=BUY_ST[r.status]||BUY_ST.req;
-      return '<td style="text-align:right;"><div style="font-weight:700;color:'+st[1]+';">'+nf(finalQty(r))+
-        (r.adjustedQty!=null?'<span title="조정됨" style="color:var(--accent);font-size:10px;"> *</span>':"")+'</div>'+
-        '<div style="font-size:9.5px;color:'+st[1]+';">'+st[0]+'</div></td>'; }).join("");
+      var L=g.lines[c]; if(!L) return '<td style="text-align:right;color:#c9d3db;">·</td>';
+      var parts=["req","ordered","done","hold"].filter(function(k){ return L[k]; }).map(function(k){ return BUY_ST[k]; });
+      var col=parts.length===1?parts[0][1]:"var(--text)";
+      return '<td style="text-align:right;"><div style="font-weight:700;color:'+col+';">'+nf(L.final)+
+        (L.adj?'<span title="조정됨" style="color:var(--accent);font-size:10px;"> *</span>':"")+
+        (L.n>1?'<span title="추가 신청 포함" style="color:var(--text-mute);font-size:9.5px;"> ('+L.n+'줄)</span>':"")+'</div>'+
+        '<div style="font-size:9.5px;color:'+col+';">'+parts.map(function(pp){ return pp[0]; }).join("+")+'</div></td>'; }).join("");
     var stSum=[]; if(g.open) stSum.push('<span class="tag t-grey">미발주 '+g.open+'</span>');
     if(g.hold) stSum.push('<span class="tag t-warn">보류 '+g.hold+'</span>');
     if(g.ordered) stSum.push('<span class="tag t-ret">발주 '+g.ordered+'</span>');
@@ -1536,7 +1578,7 @@ function bindBuy(){
       ["월","자재번호","분류","자재명","규격","단위","단가"].concat(d.cos).concat(["합계","금액","미발주","발주","입고","보류"]),
       d.groups.map(function(g){ var it=g.it;
         return [S.reqMonth,it.code||it.id,it.category||"",it.name,it.spec||"",it.unit||"",it.price||0]
-          .concat(d.cos.map(function(c){ var r=g.lines[c]; return r?finalQty(r):""; }))
+          .concat(d.cos.map(function(c){ var L=g.lines[c]; return L?L.final:""; }))
           .concat([g.total,g.amt,g.open,g.ordered,g.done,g.hold]); })); };
 }
 
@@ -1590,7 +1632,7 @@ function viewDlv(){
         '<span class="hint" style="margin:0;">입력하면 업체 순서대로 미입고분에 자동 배분됩니다 (수정 가능)</span></div>':"")+'</div>'+
       '<div class="tablewrap"><table><thead><tr><th>업체</th><th>발주 수량</th><th>기입고</th><th>미입고</th><th>상태</th>'+(canReceive()?'<th style="width:130px;">이번 입고 수량</th>':'')+'</tr></thead><tbody>'+
       (lines.map(function(r){ var fq=finalQty(r), got=r.receivedQty||0, rem=Math.max(0,fq-got);
-        return '<tr><td class="kr"><b>'+esc(r.company)+'</b></td><td>'+nf(fq)+'</td><td>'+nf(got)+'</td>'+
+        return '<tr><td class="kr"><b>'+esc(r.company)+'</b>'+seqTag(r)+'</td><td>'+nf(fq)+'</td><td>'+nf(got)+'</td>'+
           '<td style="font-weight:700;color:'+(rem>0?"var(--danger)":"var(--ok)")+';">'+nf(rem)+'</td>'+
           '<td>'+reqStatusTag(r)+(r.status==="req"?' <span class="tag t-warn" title="발주 표시가 안 된 건입니다">미발주 표시</span>':"")+'</td>'+
           (canReceive()?'<td>'+(rem>0?'<input type="number" min="0" class="dAlloc" data-id="'+esc(r.id)+'" data-rem="'+rem+'" value="'+rem+'" style="width:110px;">':'<span class="tag t-ok">완료</span>')+'</td>':'')+'</tr>'; }).join("")
@@ -1598,7 +1640,7 @@ function viewDlv(){
       '</tbody></table></div>'+
       (canReceive()&&totalRem>0?'<div class="panel-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'+
         '<button class="btn btn-primary" id="dApply">입고 반영 (배분 확정)</button>'+
-        '<span class="hint" style="margin:0;">반영하면 각 업체의 미입고가 줄고, 전량 입고된 업체는 입고완료로 바뀝니다. 실물 재고 등록은 각 업체가 불출·입고 탭에서 합니다.</span></div>':"")+
+        '<span class="hint" style="margin:0;">반영하면 각 업체의 미입고가 줄고, 전량 입고된 업체는 입고완료로 바뀝니다. <b>부서 공구실 물량은 보유 재고에도 즉시 반영</b>되며, 협력업체 물량은 각 업체가 불출·입고 탭에서 등록합니다.</span></div>':"")+
       '</div>';
   }
   return (S.msg.dlv?'<div class="msg msg-ok">'+esc(S.msg.dlv)+'</div>':"")+
@@ -1643,14 +1685,40 @@ function bindDlv(){
     var over=allocs.filter(function(x){ return x.qty>x.rem; });
     var lines=allocs.map(function(x){ var r=S.requests.filter(function(z){ return z.id===x.id; })[0]; return {r:r,x:x}; }).filter(function(z){ return z.r; });
     var summary=lines.map(function(z){ var it=itemById(z.r.itemId)||{}; return z.r.company+" "+nf(z.x.qty)+(it.unit||""); }).join(" · ");
-    if(!confirm("다음과 같이 배분해 입고 반영합니다.\n\n"+summary+(over.length?"\n\n※ 미입고 수량을 초과한 업체가 "+over.length+"곳 있습니다 (초과 납품)":"")+"\n\n계속할까요?")) return;
+    var roomQty=lines.filter(function(z){ return z.r.company===DEPT_ROOM; }).reduce(function(a,z){ return a+z.x.qty; },0);
+    if(!confirm("다음과 같이 배분해 입고 반영합니다.\n\n"+summary+
+        (roomQty?"\n\n※ 부서 공구실 "+nf(roomQty)+"은(는) 보유 재고에도 즉시 반영됩니다.\n   (협력업체 물량은 각 업체가 불출·입고 탭에서 등록)":"")+
+        (over.length?"\n\n※ 미입고 수량을 초과한 업체가 "+over.length+"곳 있습니다 (초과 납품)":"")+"\n\n계속할까요?")) return;
     var now=Date.now();
     var rows=lines.map(function(z){ var r=Object.assign({},z.r);
       r.receivedQty=(r.receivedQty||0)+z.x.qty;
       if(r.receivedQty>=finalQty(r)){ r.status="done"; r.receivedAt=now; } else { r.status="ordered"; if(!r.orderedAt) r.orderedAt=now; }
       r.updatedBy=S.user.id; r.updatedAt=now; return M.reqOut(r); });
-    if(await push(function(){ return db.from("requests").upsert(rows); },"입고 반영 완료")){
-      S.msg.dlv="입고 반영: "+summary; await pull(); render(); }
+    if(!await push(function(){ return db.from("requests").upsert(rows); })) return;
+    /* 부서 공구실 물량은 보유 재고에도 즉시 반영 (협력업체는 각자 등록) */
+    var stocked=0, stockFail=[];
+    var roomLines=lines.filter(function(z){ return z.r.company===DEPT_ROOM&&z.x.qty>0; });
+    for(var k=0;k<roomLines.length;k++){
+      var z=roomLines[k], it=itemById(z.r.itemId)||{name:z.r.itemName,unit:""};
+      if(!stockOf(DEPT_ROOM,z.r.itemId)){
+        /* 취급 품목으로 등록되지 않았다면 자동 등록 후 입고 */
+        var made=await push((function(id){ return function(){ return db.from("stocks").insert(
+          M.stockOut({id:stockKey(DEPT_ROOM,id),company:DEPT_ROOM,itemId:id,qty:0,minQty:0})); }; })(z.r.itemId));
+        if(!made){ stockFail.push(it.name); continue; }
+        await pull();
+      }
+      var lg={id:uid(),ts:Date.now(),type:"in",company:DEPT_ROOM,itemId:z.r.itemId,itemName:it.name,
+        unit:it.unit||"",qty:z.x.qty,taker:S.user.name,team:"납품 입고 "+dlvMonth()+" 신청분",
+        by:S.user.id,byName:S.user.name};
+      var ok=await push((function(lg,z){ return function(){ return db.rpc("apply_stock_movement",
+        {p_log:M.logOut(lg),p_company:DEPT_ROOM,p_item_id:z.r.itemId,p_delta:z.x.qty}); }; })(lg,z));
+      if(ok) stocked+=z.x.qty; else stockFail.push(it.name);
+    }
+    toast("입고 반영 완료"+(stocked?" · 부서 공구실 재고 +"+nf(stocked):""));
+    S.msg.dlv="입고 반영: "+summary+
+      (stocked?"  |  부서 공구실 보유 재고에 "+nf(stocked)+" 반영됨":"")+
+      (stockFail.length?"  |  재고 반영 실패: "+stockFail.join(", ")+" (불출·입고 탭에서 직접 등록하세요)":"");
+    await pull(); render();
   };
 }
 
@@ -2274,7 +2342,7 @@ function exportRequestForm(){
     return '<tr>'+
       '<td style="'+td+'text-align:center;">'+(idx+1)+'</td>'+
       '<td style="'+td+'text-align:center;mso-number-format:\'@\';">'+esc(it.code||r.itemId)+'</td>'+
-      '<td style="'+td+'">'+esc(it.name||r.itemName)+'</td>'+
+      '<td style="'+td+'">'+esc(it.name||r.itemName)+(lineSeq(r.id)>1?' <span style="color:#c00000;font-size:9pt;">(추가)</span>':"")+'</td>'+
       '<td style="'+td+'">'+esc(it.spec||"")+'</td>'+
       '<td style="'+td+'text-align:right;">'+(st?nf(st.qty)+" "+esc(it.unit||""):"")+'</td>'+
       '<td style="'+td+'text-align:right;font-weight:bold;">'+nf(r.requestedQty||0)+" "+esc(it.unit||"")+'</td>'+
