@@ -225,8 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v5.4";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-09-07 · 추가 신청 줄 (기존 신청 보존) · 긴급 승인 연동";
+const APP_VERSION = "v5.5";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-09-15 · 취급 품목 검색 상단 배치 · 소속 수정(Lv.5)";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -1938,6 +1938,15 @@ function viewColist(){
   return companyBar()+
   (S.msg.col?'<div class="msg msg-ok">'+esc(S.msg.col)+'</div>':"")+
   '<div class="msg msg-info">업체마다 보관하는 품목이 다릅니다. 이 업체가 실제로 보관·불출하는 품목만 등록하세요. 등록된 품목만 불출 화면에 표시됩니다.</div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>품목 추가</h2>'+
+    '<div class="sub">품목 마스터(총 '+nf(S.items.length)+'종)에서 검색해 이 업체 취급 품목으로 등록하세요 · 등록된 품목은 아래 목록에 표시됩니다</div></div></div>'+
+    '<div class="panel-body">'+
+      '<div class="filters">'+
+        '<select id="clCat"><option value="">전체 분류</option>'+catList().map(function(c){
+          return '<option value="'+esc(c)+'" '+(c===(S.clCat||"")?"selected":"")+'>'+esc(c)+'</option>'; }).join("")+'</select>'+
+        '<input type="text" id="clSearch" placeholder="자재명·규격·자재번호 검색" value="'+esc(S.clSearch||"")+'" style="flex:2;"></div>'+
+      '<div id="clBox">'+clBoxHTML()+'</div>'+
+    '</div></div>'+
   '<div class="panel"><div class="panel-head"><div><h2>'+esc(co)+' 취급 품목</h2>'+
     '<div class="sub">'+registered.length+'종 · 최소재고를 지정하면 부족 경고가 표시됩니다</div></div></div>'+
     '<div class="panel-body"><div class="tablewrap"><table><thead><tr><th>품목 / 규격 / 자재번호</th><th>단위</th>'+
@@ -1952,15 +1961,6 @@ function viewColist(){
             '<button class="btn btn-danger btn-sm cDel" data-id="'+x.item.id+'">제외</button></td></tr>'; }).join("")
         ||'<tr><td colspan="5" class="empty">등록된 취급 품목이 없습니다. 아래에서 추가하세요.</td></tr>')+
     '</tbody></table></div></div></div>'+
-  '<div class="panel"><div class="panel-head"><div><h2>품목 추가</h2>'+
-    '<div class="sub">품목 마스터(총 '+nf(S.items.length)+'종)에서 검색해 이 업체 취급 품목으로 등록하세요</div></div></div>'+
-    '<div class="panel-body">'+
-      '<div class="filters">'+
-        '<select id="clCat"><option value="">전체 분류</option>'+catList().map(function(c){
-          return '<option value="'+esc(c)+'" '+(c===(S.clCat||"")?"selected":"")+'>'+esc(c)+'</option>'; }).join("")+'</select>'+
-        '<input type="text" id="clSearch" placeholder="자재명·규격·자재번호 검색" value="'+esc(S.clSearch||"")+'" style="flex:2;"></div>'+
-      '<div id="clBox">'+clBoxHTML()+'</div>'+
-    '</div></div>'+
   (canManageItems()?
   '<div class="panel"><div class="panel-head"><div><h2>카탈로그에 없는 품목 등록 <span class="lvchip lv4" style="margin-left:4px;">Lv.4+</span></h2>'+
     '<div class="sub">품목 마스터에 새 품목을 만들면서 '+esc(co)+' 취급 품목에도 바로 추가합니다. 업체 공구장은 등록된 품목을 가져오는 것만 가능합니다.</div></div></div>'+
@@ -2059,9 +2059,12 @@ function viewGrant(){
   var lvOpts=function(sel){ return [1,2,3,4,5].map(function(n){
     return '<option value="'+n+'" '+(n===sel?"selected":"")+'>Lv.'+n+' · '+LEVEL_NAME[n]+'</option>'; }).join(""); };
 
+  var coOpts=function(sel){ return COMPANIES.map(function(c){
+    return '<option value="'+esc(c)+'" '+(c===sel?"selected":"")+'>'+esc(c)+'</option>'; }).join(""); };
   var pendRows=pend.map(function(u){
     return '<tr><td><span class="idtag">'+esc(u.id)+'</span></td>'+
-      '<td class="kr">'+esc(u.name)+'</td><td class="kr">'+esc(u.company)+'</td>'+
+      '<td class="kr">'+esc(u.name)+'</td>'+
+      '<td><select class="apCo" data-id="'+esc(u.id)+'" style="width:auto;display:inline-block;">'+coOpts(u.company)+'</select></td>'+
       '<td>'+lvChip(u.reqLevel||1)+' <span style="color:var(--text-mute);font-size:11.5px;">신청</span></td>'+
       '<td>'+fmt(u.createdAt,true)+'</td>'+
       '<td><select class="apLv" data-id="'+esc(u.id)+'" style="width:auto;display:inline-block;">'+lvOpts(u.reqLevel||1)+'</select> '+
@@ -2080,7 +2083,9 @@ function viewGrant(){
         var stale=u.lastLogin&&(Date.now()-u.lastLogin>90*864e5);
         return '<tr style="'+(stale?"color:#8b99a5;":"")+'">'+
           '<td><span class="idtag">'+esc(u.id)+'</span></td>'+
-          '<td class="kr">'+esc(u.name)+'</td><td class="kr">'+esc(u.company)+'</td>'+
+          '<td class="kr">'+esc(u.name)+'</td>'+
+          '<td>'+(self?'<span class="kr">'+esc(u.company)+'</span>'
+            :'<select class="chCo" data-id="'+esc(u.id)+'" style="width:auto;">'+coOpts(u.company)+'</select>')+'</td>'+
           '<td>'+(self?'<span style="color:var(--text-mute);font-size:12px;">본인 계정</span>'
             :'<select class="chLv" data-id="'+esc(u.id)+'" style="width:auto;">'+lvOpts(u.level)+'</select>')+'</td>'+
           '<td>'+(u.lastLogin?fmt(u.lastLogin,true):"미접속")+'</td>'+
@@ -2099,7 +2104,7 @@ function viewGrant(){
     '<div class="statcard"><div class="lbl">업체 공구장</div><div class="val">'+byLv[2].length+' <small>명</small></div></div>'+
   '</div>'+
   '<div class="panel"><div class="panel-head"><div><h2>권한 부여 대기</h2>'+
-    '<div class="sub">신청한 권한을 확인하고 최종 권한을 지정해 승인하세요</div></div>'+
+    '<div class="sub">신청한 권한을 확인하고 최종 권한을 지정해 승인하세요. <b>소속을 잘못 적은 경우 여기서 바로잡은 뒤 승인</b>하면 됩니다</div></div>'+
     (canExport()?'<button class="btn btn-ghost btn-sm" id="csvUsers">Excel 내보내기</button>':"")+'</div>'+
     '<div class="tablewrap"><table><thead><tr><th>사번(아이디)</th><th>이름</th><th>소속</th><th>신청 권한</th><th>신청일</th><th>처리</th></tr></thead>'+
     '<tbody>'+(pendRows||'<tr><td colspan="6" class="empty">대기중인 신청이 없습니다.</td></tr>')+'</tbody></table></div></div>'+
@@ -2114,8 +2119,14 @@ function bindGrant(){
   document.querySelectorAll(".apOk").forEach(function(el){ el.onclick=function(){
     var u=U(el.dataset.id);
     var sel=document.querySelector('.apLv[data-id="'+CSS.escape(el.dataset.id)+'"]');
+    var coSel=document.querySelector('.apCo[data-id="'+CSS.escape(el.dataset.id)+'"]');
     u.status="approved"; u.level=+sel.value;
-    saveU(u,u.name+" 계정을 Lv."+u.level+"로 승인했습니다."); }; });
+    if(coSel&&coSel.value) u.company=coSel.value;
+    saveU(u,u.name+" 계정을 "+u.company+" · Lv."+u.level+"로 승인했습니다."); }; });
+  document.querySelectorAll(".chCo").forEach(function(el){ el.onchange=function(){
+    var u=U(el.dataset.id); var from=u.company; u.company=el.value;
+    if(!confirm(u.name+"의 소속을 "+from+" → "+u.company+" 로 변경합니다.\n이 사용자가 앞으로 보는 재고·신청 화면이 바뀝니다. 계속할까요?")){ el.value=from; return; }
+    saveU(u,u.name+" 소속을 "+u.company+"(으)로 변경했습니다."); }; });
   document.querySelectorAll(".apNo").forEach(function(el){ el.onclick=async function(){
     if(!confirm("가입 신청을 거절하고 삭제합니다.")) return;
     if(await push(function(){ return db.from("users").delete().eq("id",el.dataset.id); },"삭제되었습니다.")){
