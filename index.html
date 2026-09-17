@@ -225,8 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v5.6";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-09-17 · 발주 담당자 지정 (발주·부서 공구실 신청 전용)";
+const APP_VERSION = "v5.7";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-09-17 · 발주 담당자 지정 · 새 버전 자동 업데이트";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -671,13 +671,43 @@ function viewTab(){
   return fn?fn():"";
 }
 
+/* ── 새 버전 감지: 서버의 index.html 버전을 주기적으로 읽어 다르면 업데이트를 안내·강제 ── */
+var NEW_VER=null, verTick=0;
+async function checkVersion(){
+  if(location.protocol==="file:"||NEW_VER) return;
+  try{
+    var base=location.pathname.replace(/[^\/]*$/,"");
+    var r=await fetch(base+"index.html?nocache="+Date.now(),{cache:"no-store"});
+    if(!r.ok) return;
+    var t=await r.text();
+    var m=/const APP_VERSION = "([^"]+)"/.exec(t);
+    if(m&&m[1]!==APP_VERSION){ NEW_VER=m[1]; showUpdate(); }
+  }catch(e){}
+}
+function showUpdate(){
+  if(document.getElementById("updOverlay")) return;
+  var d=document.createElement("div"); d.id="updOverlay";
+  d.style.cssText="position:fixed;inset:0;z-index:999;background:rgba(13,36,54,.92);color:#fff;display:flex;align-items:center;justify-content:center;padding:20px;";
+  d.innerHTML='<div style="max-width:440px;background:#fff;color:#182430;border-radius:4px;padding:26px 24px;border-top:4px solid #ff6a1a;">'+
+    '<div style="font-family:IBM Plex Mono;font-size:11px;color:#ff6a1a;letter-spacing:.12em;margin-bottom:6px;">UPDATE</div>'+
+    '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">새 버전 '+esc(NEW_VER)+' 이 배포되었습니다</div>'+
+    '<div style="font-size:13px;line-height:1.7;color:#5f7080;margin-bottom:16px;">현재 사용 중인 '+esc(APP_VERSION)+' 은(는) 규칙이 다를 수 있어 계속 쓸 수 없습니다. '+
+    '입력 중인 내용이 있으면 저장 후 업데이트하세요. <b>임시 저장은 유지됩니다.</b><br>'+
+    '<span id="updCount">60</span>초 뒤 자동으로 업데이트됩니다.</div>'+
+    '<button class="btn btn-primary btn-block" onclick="location.reload()">지금 업데이트</button></div>';
+  document.body.appendChild(d);
+  var left=60; var tm=setInterval(function(){ left--; var c=document.getElementById("updCount"); if(c) c.textContent=left;
+    if(left<=0){ clearInterval(tm); location.reload(); } },1000);
+}
 var pollTimer=null;
 function startPoll(){ stopPoll(); pollTimer=setInterval(async function(){
+  verTick++; if(verTick%9===0) checkVersion();          /* 약 3분마다 새 버전 확인 */
   var a=document.activeElement;
   if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)) return;
   if(document.hidden) return;
   if(await pull()) render();
 },20000); }
+document.addEventListener("visibilitychange",function(){ if(!document.hidden) checkVersion(); });
 function stopPoll(){ if(pollTimer) clearInterval(pollTimer); pollTimer=null; }
 
 /* ══════════════════════════════════════════════════════════
@@ -2469,6 +2499,7 @@ function exportCSV(name,head,rows){
       '<button class="btn btn-primary" onclick="location.reload()">다시 시도</button>');
     return;
   }
+  checkVersion();
   var sid=ls("bz_session");
   if(sid){ var u=S.users.filter(function(x){ return x.id===sid&&x.status==="approved"; })[0];
     if(u){ S.user=u; startPoll(); } }
@@ -2477,6 +2508,7 @@ function exportCSV(name,head,rows){
     S.authMsg={t:"o",m:"첫 사용입니다. 시스템 관리자(Lv.5) 계정을 먼저 만드세요. 최초 가입자는 자동 승인됩니다."};
   }
   render();
+  setInterval(function(){ if(!S.user) checkVersion(); },180000);
 })();
 })();
 </script>
