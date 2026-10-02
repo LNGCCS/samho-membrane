@@ -225,8 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v5.8";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-10-02 · 입고 취소 (잘못 반영한 입고 되돌리기)";
+const APP_VERSION = "v5.9";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-10-05 · 소속 데이터 정리 (잘못된 소속 이관)";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -1137,6 +1137,44 @@ async function unreceiveLine(lineId){
   }
   toast("입고 "+nf(x)+" 취소되었습니다."); return true;
 }
+/* ── 관리 대상 목록에 없는 소속(잘못 가입된 계정이 남긴 데이터 등) 탐지 ── */
+function strayCompanies(){
+  var ok={}; pickableCos().forEach(function(c){ ok[c]=1; });
+  var m={};
+  function add(c,k){ if(!c||ok[c]) return; m[c]=m[c]||{requests:0,stocks:0,logs:0,emergencies:0,stocktakes:0}; m[c][k]++; }
+  S.requests.forEach(function(r){ add(r.company,"requests"); });
+  S.stocks.forEach(function(r){ add(r.company,"stocks"); });
+  S.logs.forEach(function(r){ add(r.company,"logs"); });
+  S.emergencies.forEach(function(r){ add(r.company,"emergencies"); });
+  S.stocktakes.forEach(function(r){ add(r.company,"stocktakes"); });
+  return Object.keys(m).map(function(c){ var x=m[c]; x.company=c; x.total=x.requests+x.stocks+x.logs+x.emergencies+x.stocktakes; return x; });
+}
+/* 잘못된 소속의 데이터를 올바른 업체로 옮긴다 (Lv.5) — 신청은 추가 신청 줄로, 재고는 합산 */
+async function migrateCompany(from,to){
+  if(!lv(5)){ toast("시스템 관리자만 가능합니다.",true); return false; }
+  var rs=S.requests.filter(function(r){ return r.company===from; });
+  for(var i=0;i<rs.length;i++){ var r=rs[i];
+    var ls2=S.requests.filter(function(x){ return x.company===to&&x.month===r.month&&x.itemId===r.itemId; });
+    var seq=ls2.length?Math.max.apply(null,ls2.map(function(x){ return lineSeq(x.id); }))+1:1;
+    var c=Object.assign({},r,{id:r.month+"|"+to+"|"+r.itemId+(seq>1?"|#"+seq:""),company:to,
+      comment:(r.comment?r.comment+" · ":"")+"소속 이관("+from+")",updatedBy:S.user.id,updatedAt:Date.now()});
+    if(!await push(function(){ return db.from("requests").upsert(M.reqOut(c)); })) return false;
+    await push(function(){ return db.from("requests").delete().eq("id",r.id); });
+    S.requests.push(c);
+  }
+  var ss=S.stocks.filter(function(x){ return x.company===from; });
+  for(var k=0;k<ss.length;k++){ var st=ss[k];
+    var tgt=stockOf(to,st.itemId);
+    var row=tgt?{id:tgt.id,company:to,itemId:st.itemId,qty:(tgt.qty||0)+(st.qty||0),minQty:Math.max(tgt.minQty||0,st.minQty||0)}
+               :{id:stockKey(to,st.itemId),company:to,itemId:st.itemId,qty:st.qty||0,minQty:st.minQty||0};
+    if(!await push(function(){ return db.from("stocks").upsert(M.stockOut(row)); })) return false;
+    await push(function(){ return db.from("stocks").delete().eq("id",st.id); });
+  }
+  await push(function(){ return db.from("logs").update({company:to}).eq("company",from); });
+  await push(function(){ return db.from("emergencies").update({company:to}).eq("company",from); });
+  await push(function(){ return db.from("stocktakes").update({company:to}).eq("company",from); });
+  toast(from+" → "+to+" 이관 완료"); return true;
+}
 function monthReqs(co){
   return S.requests.filter(function(r){ return r.month===S.reqMonth && r.company===co; });
 }
@@ -1582,7 +1620,11 @@ function buyData(){
 function viewBuy(){
   var d=buyData();
   var openLines=S.requests.filter(function(r){ return r.month===S.reqMonth&&r.status==="req"&&finalQty(r)>0; }).length;
+  var stray=strayCompanies().filter(function(x){ return x.requests>0; });
   return (S.msg.buy?'<div class="msg msg-ok">'+esc(S.msg.buy)+'</div>':"")+
+  (stray.length?'<div class="msg msg-error"><b>관리 대상 목록에 없는 소속의 신청이 있습니다:</b> '+
+    stray.map(function(x){ return esc(x.company)+" "+x.requests+"건"; }).join(", ")+
+    ' — 소속을 잘못 선택해 가입한 계정이 남긴 데이터입니다. '+(lv(5)?'<b>권한 관리 → 소속 데이터 정리</b>에서 올바른 업체로 이관하세요.':'시스템 관리자에게 정리를 요청하세요.')+'</div>':"")+
   '<div class="msg msg-info">전 업체(부서 공구실 포함)의 <b>'+esc(S.reqMonth)+'</b> 신청을 품목별로 합산한 구매 취합표입니다. 조정 수량이 있으면 조정값으로 합산되며(* 표시), 여기서 [발주]를 누르면 해당 품목의 모든 업체 신청이 한 번에 발주 처리됩니다.</div>'+
   '<div class="grid3">'+
     '<div class="statcard"><div class="lbl">'+esc(S.reqMonth)+' 취합 금액</div><div class="val" style="font-size:19px;">'+won(d.totAmt)+'</div></div>'+
@@ -2175,7 +2217,15 @@ function viewGrant(){
       '</tbody></table></div></div>';
   }).join("");
 
-  return '<div class="grid3">'+
+  var stray=strayCompanies();
+  var strayPanel=stray.length?'<div class="panel"><div class="panel-head"><div><h2>소속 데이터 정리</h2>'+
+    '<div class="sub">관리 대상 목록(협력업체·부서 공구실)에 없는 소속으로 저장된 데이터입니다. 올바른 업체로 이관하면 신청은 <b>추가 신청 줄</b>로, 재고는 <b>합산</b>되고 이력은 업체명만 바뀝니다.</div></div></div>'+
+    '<div class="tablewrap"><table><thead><tr><th>잘못된 소속</th><th>신청</th><th>취급 품목</th><th>로그</th><th>긴급</th><th>실사</th><th>이관할 업체</th><th></th></tr></thead><tbody>'+
+    stray.map(function(x){ return '<tr><td class="kr"><b>'+esc(x.company)+'</b></td><td>'+x.requests+'</td><td>'+x.stocks+'</td><td>'+x.logs+'</td><td>'+x.emergencies+'</td><td>'+x.stocktakes+'</td>'+
+      '<td><select class="mgTo" data-from="'+esc(x.company)+'" style="width:auto;">'+pickableCos().map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join("")+'</select></td>'+
+      '<td><button class="btn btn-navy btn-sm mgGo" data-from="'+esc(x.company)+'">이관</button></td></tr>'; }).join("")+
+    '</tbody></table></div></div>':"";
+  return strayPanel+'<div class="grid3">'+
     '<div class="statcard"><div class="lbl">승인 대기</div><div class="val" style="color:'+(pend.length?"#d1462f":"#0d2436")+'">'+pend.length+' <small>건</small></div></div>'+
     '<div class="statcard"><div class="lbl">등록 사용자</div><div class="val">'+appr.length+' <small>명</small></div></div>'+
     '<div class="statcard"><div class="lbl">발주 담당자</div><div class="val" style="font-size:18px;">'+
@@ -2217,6 +2267,15 @@ function bindGrant(){
     var u=U(el.dataset.id); u.status="suspended"; saveU(u,"정지되었습니다."); }; });
   document.querySelectorAll(".uRe").forEach(function(el){ el.onclick=function(){
     var u=U(el.dataset.id); u.status="approved"; saveU(u,"복구되었습니다."); }; });
+  document.querySelectorAll(".mgGo").forEach(function(el){ el.onclick=async function(){
+    var from=el.dataset.from;
+    var sel=document.querySelector('.mgTo[data-from="'+CSS.escape(from)+'"]'); var to=sel?sel.value:null;
+    if(!to){ return; }
+    var x=strayCompanies().filter(function(z){ return z.company===from; })[0]||{};
+    if(!confirm("'"+from+"' 소속으로 저장된 데이터를 '"+to+"'(으)로 이관합니다.\n\n신청 "+(x.requests||0)+"건 · 취급 품목 "+(x.stocks||0)+"건 · 로그 "+(x.logs||0)+"건 · 긴급 "+(x.emergencies||0)+"건 · 실사 "+(x.stocktakes||0)+"건\n\n되돌리기 어려우니 대상 업체를 다시 확인하세요. 계속할까요?")) return;
+    el.disabled=true; el.textContent="이관 중…";
+    if(await migrateCompany(from,to)){ await pull(); render(); } else { el.disabled=false; el.textContent="이관"; }
+  }; });
   document.querySelectorAll(".uProcOn").forEach(function(el){ el.onclick=async function(){
     var u=U(el.dataset.id);
     var others=S.users.filter(function(x){ return x.id!==u.id&&(x.roles||"").indexOf("procure")>=0; });
