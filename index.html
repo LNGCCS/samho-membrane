@@ -225,8 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v5.7";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-09-17 · 발주 담당자 지정 · 새 버전 자동 업데이트";
+const APP_VERSION = "v5.8";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-10-02 · 입고 취소 (잘못 반영한 입고 되돌리기)";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -1114,6 +1114,29 @@ function newLine(co,itemId,month){ var m=month||S.reqMonth;
     requestedQty:null,adjustedQty:null,comment:"",status:"req",orderedAt:null,receivedAt:null,receivedQty:0,
     updatedBy:S.user.id,updatedAt:Date.now()}; }
 function seqTag(r){ var n=lineSeq(r.id); return n>1?' <span class="tag t-grey" title="원 신청과 별도로 추가된 신청">추가 #'+n+'</span>':""; }
+/* ── 입고 취소: 잘못 반영한 입고를 되돌린다 (Lv.4 이상) ── */
+async function unreceiveLine(lineId){
+  if(!canReceive()){ toast("입고 취소는 부서 공구장(Lv.4) 이상만 가능합니다.",true); return false; }
+  var r=S.requests.filter(function(z){ return z.id===lineId; })[0]; if(!r) return false;
+  var got=r.receivedQty||0; if(!got){ toast("취소할 입고가 없습니다.",true); return false; }
+  var it=itemById(r.itemId)||{name:r.itemName,unit:""};
+  var v=prompt(r.company+" · "+(it.name||"")+"\n취소할 입고 수량을 입력하세요 (현재 입고 "+nf(got)+(it.unit||"")+")",String(got));
+  if(v===null) return false;
+  var x=Math.min(got,Math.max(0,parseInt(v,10)||0)); if(!x) return false;
+  if(!confirm("입고 "+nf(x)+(it.unit||"")+"을(를) 취소합니다. 상태가 미입고로 돌아갑니다."+
+    (r.company===DEPT_ROOM?"\n부서 공구실 보유 재고도 "+nf(x)+" 줄어들고 취소 이력이 남습니다.":"")+"\n계속할까요?")) return false;
+  var c=Object.assign({},r);
+  c.receivedQty=got-x; c.status=(c.receivedQty>=finalQty(r))?"done":"ordered";
+  if(c.status!=="done") c.receivedAt=null;
+  c.updatedBy=S.user.id; c.updatedAt=Date.now();
+  if(!await push(function(){ return db.from("requests").upsert(M.reqOut(c)); })) return false;
+  if(r.company===DEPT_ROOM&&stockOf(DEPT_ROOM,r.itemId)){
+    var lg={id:uid(),ts:Date.now(),type:"cancel",company:DEPT_ROOM,itemId:r.itemId,itemName:it.name,unit:it.unit||"",
+      qty:x,taker:S.user.name,team:"납품 입고 취소 "+r.month+" 신청분",by:S.user.id,byName:S.user.name};
+    await push(function(){ return db.rpc("apply_stock_movement",{p_log:M.logOut(lg),p_company:DEPT_ROOM,p_item_id:r.itemId,p_delta:-x}); });
+  }
+  toast("입고 "+nf(x)+" 취소되었습니다."); return true;
+}
 function monthReqs(co){
   return S.requests.filter(function(r){ return r.month===S.reqMonth && r.company===co; });
 }
@@ -1318,6 +1341,8 @@ function viewReq(){
               ?'<button class="btn btn-ghost btn-sm rHold" data-line="'+esc(r.id)+'">보류</button>'
               :r.status==="hold"?'<button class="btn btn-ghost btn-sm rUnhold" data-line="'+esc(r.id)+'">보류 해제</button>':"")
             :"")+
+          (canReceive()&&(r.receivedQty||0)>0
+            ?' <button class="btn btn-ghost btn-sm rUnrecv" data-line="'+esc(r.id)+'" title="잘못 반영한 입고 되돌리기">입고 취소</button>':"")+
           (!lv(3)&&r.status==="ordered"
             ?'<span style="font-size:11px;color:var(--text-mute);">입고 대기</span>':"")+
           (((adm&&(r.status==="req"||r.status==="hold"))||(!lv(3)&&edit&&r.status==="req"))
@@ -1455,6 +1480,8 @@ function bindReq(){
       else r2.status="ordered";
     },got>0?"입고 "+nf(got)+" 반영되었습니다.":"변경되었습니다.");
   }; });
+  document.querySelectorAll(".rUnrecv").forEach(function(el){ el.onclick=async function(){
+    if(await unreceiveLine(el.dataset.line)){ await pull(); render(); } }; });
   document.querySelectorAll(".rDel").forEach(function(el){ el.onclick=async function(){
     if(!reqGuard()) return;
     var r=lineById(el.dataset.line); if(!r) return;
@@ -1677,7 +1704,8 @@ function viewDlv(){
         return '<tr><td class="kr"><b>'+esc(r.company)+'</b>'+seqTag(r)+'</td><td>'+nf(fq)+'</td><td>'+nf(got)+'</td>'+
           '<td style="font-weight:700;color:'+(rem>0?"var(--danger)":"var(--ok)")+';">'+nf(rem)+'</td>'+
           '<td>'+reqStatusTag(r)+(r.status==="req"?' <span class="tag t-warn" title="발주 표시가 안 된 건입니다">미발주 표시</span>':"")+'</td>'+
-          (canReceive()?'<td>'+(rem>0?'<input type="number" min="0" class="dAlloc" data-id="'+esc(r.id)+'" data-rem="'+rem+'" value="'+rem+'" style="width:110px;">':'<span class="tag t-ok">완료</span>')+'</td>':'')+'</tr>'; }).join("")
+          (canReceive()?'<td>'+(rem>0?'<input type="number" min="0" class="dAlloc" data-id="'+esc(r.id)+'" data-rem="'+rem+'" value="'+rem+'" style="width:110px;">':'<span class="tag t-ok">완료</span>')+
+            (got>0?' <button class="btn btn-ghost btn-sm dUnrecv" data-line="'+esc(r.id)+'" title="잘못 반영한 입고 되돌리기">취소</button>':"")+'</td>':'')+'</tr>'; }).join("")
         ||'<tr><td colspan="6" class="empty">'+esc(m)+'에 이 품목을 신청한 업체가 없습니다.</td></tr>')+
       '</tbody></table></div>'+
       (canReceive()&&totalRem>0?'<div class="panel-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'+
@@ -1718,6 +1746,8 @@ function bindDlv(){
     document.querySelectorAll(".dAlloc").forEach(function(i){
       var rem=+i.dataset.rem; var give=Math.min(rem,left); i.value=give; left-=give; });
   };
+  document.querySelectorAll(".dUnrecv").forEach(function(el){ el.onclick=async function(){
+    if(await unreceiveLine(el.dataset.line)){ await pull(); render(); } }; });
   var a=document.getElementById("dApply");
   if(a) a.onclick=async function(){
     if(!canReceive()){ toast("입고 반영은 부서 공구장(Lv.4) 이상만 가능합니다.",true); return; }
@@ -2132,7 +2162,8 @@ function viewGrant(){
             :'<select class="chLv" data-id="'+esc(u.id)+'" style="width:auto;">'+lvOpts(u.level)+'</select>')+'</td>'+
           '<td>'+(u.lastLogin?fmt(u.lastLogin,true):"미접속")+'</td>'+
           '<td>'+(u.status==="suspended"?'<span class="tag t-grey">정지</span>':'<span class="tag t-ok">사용</span>')+
-            ((u.roles||"").indexOf("procure")>=0?' <span class="tag t-danger">발주 담당</span>':"")+'</td>'+
+            ((u.roles||"").indexOf("procure")>=0?' <span class="tag t-danger">발주 담당</span>':"")+
+            '</td>'+
           '<td>'+(self?"":(u.status==="suspended"
             ?'<button class="btn btn-ghost btn-sm uRe" data-id="'+esc(u.id)+'">복구</button>'
             :'<button class="btn btn-ghost btn-sm uSp" data-id="'+esc(u.id)+'">정지</button>')+
@@ -2348,7 +2379,7 @@ function viewMe(){
      ["부서 공구실 부자재 신청 수정 (발주 담당자)",isProcurer()],
      ["구매 취합표 (전 업체 품목별 합산·일괄 발주)",lv(3)],
      ["납품 배분 조회 (품목·월로 신청 업체 찾기)",lv(3)],
-     ["납품 배분 입고 반영",canReceive()],
+     ["납품 배분 입고 반영 · 입고 취소",canReceive()],
      ["발주 품목 입고 확인",canReceive()],
      ["로그 정정",lv(3)],
      ["Excel 내보내기",canExport()],
@@ -2465,37 +2496,21 @@ function exportCSV(name,head,rows){
     var t=raw.toLowerCase(), cause, fix;
     if(t.indexOf("invalid api key")>=0||t.indexOf("jwt")>=0||t.indexOf("401")>=0||t.indexOf("no api key")>=0){
       cause="API 키가 유효하지 않습니다 (401).";
-      fix='<ul style="line-height:1.9;font-size:13.5px;">'+
-        '<li>Supabase <code>Project Settings → API</code>에서 <b>복사 버튼</b>으로 키를 다시 복사하세요.</li>'+
-        '<li><code>sb_publishable_...</code> 키가 보이면 그것을 사용하세요.</li>'+
-        '<li><code>service_role</code> / <code>secret</code> 키는 사용하면 안 됩니다.</li></ul>';
+      fix='<ul style="line-height:1.9;font-size:13.5px;"><li>Supabase <code>Project Settings → API</code>에서 <b>복사 버튼</b>으로 키를 다시 복사하세요.</li></ul>';
     } else if(t.indexOf("does not exist")>=0||t.indexOf("relation")>=0||t.indexOf("schema cache")>=0||t.indexOf("pgrst")>=0){
       cause="데이터베이스 테이블이 준비되지 않았습니다.";
-      fix='<ul style="line-height:1.9;font-size:13.5px;">'+
-        '<li>Supabase <code>SQL Editor</code>에서 <code>supabase_v3_upgrade.sql</code>을 실행했는지 확인하세요.</li>'+
-        '<li><code>stocks</code> 테이블과 <code>apply_stock_movement</code> 함수가 필요합니다.</li></ul>';
+      fix='<ul style="line-height:1.9;font-size:13.5px;"><li>Supabase <code>SQL Editor</code>에서 설정 SQL을 실행했는지 확인하세요.</li></ul>';
     } else if(t.indexOf("row-level security")>=0||t.indexOf("policy")>=0){
       cause="접근 규칙(RLS)이 설정되지 않았습니다.";
-      fix='<ul style="line-height:1.9;font-size:13.5px;">'+
-        '<li>Supabase <code>SQL Editor</code>에서 <code>supabase_rls_fix.sql</code>과 '+
-        '<code>supabase_v3_upgrade.sql</code>을 모두 실행하세요.</li></ul>';
+      fix='<ul style="line-height:1.9;font-size:13.5px;"><li>Supabase <code>SQL Editor</code>에서 <code>supabase_rls_fix.sql</code>을 실행하세요.</li></ul>';
     } else if(t.indexOf("failed to fetch")>=0||t.indexOf("networkerror")>=0){
       cause="서버 주소에 접속하지 못했습니다.";
-      fix='<ul style="line-height:1.9;font-size:13.5px;">'+
-        '<li><code>SUPABASE_URL</code>은 <code>https://xxxx.supabase.co</code> 형태여야 합니다. '+
-        '뒤에 <code>/rest/v1/</code>이 붙어 있으면 지우세요.</li>'+
-        '<li>사내망 차단 가능성이 있습니다. 휴대폰 데이터로 확인해 보세요.</li></ul>';
-    } else {
-      cause="예상하지 못한 오류입니다.";
-      fix='<ul style="line-height:1.9;font-size:13.5px;"><li>아래 오류 내용을 그대로 전달해 주세요.</li></ul>';
-    }
+      fix='<ul style="line-height:1.9;font-size:13.5px;"><li><code>SUPABASE_URL</code> 형식을 확인하세요. 사내망 차단 가능성도 있습니다.</li></ul>';
+    } else { cause="예상하지 못한 오류입니다."; fix='<ul style="line-height:1.9;font-size:13.5px;"><li>아래 오류 내용을 그대로 전달해 주세요.</li></ul>'; }
     setupScreen("서버에 연결하지 못했습니다",
       '<p style="line-height:1.7;font-size:14px;"><b>'+cause+'</b></p>'+fix+
-      '<div style="margin:16px 0;padding:12px;background:#f3f6f8;border-left:3px solid #d1462f;'+
-      'border-radius:3px;font-family:IBM Plex Mono;font-size:12px;word-break:break-all;color:#485663;">'+
+      '<div style="margin:16px 0;padding:12px;background:#f3f6f8;border-left:3px solid #d1462f;border-radius:3px;font-family:IBM Plex Mono;font-size:12px;word-break:break-all;color:#485663;">'+
       String(raw).replace(/</g,"&lt;")+'</div>'+
-      '<p style="font-size:12.5px;color:#5f7080;">현재 설정 — URL <code>'+CFG_URL.slice(0,45)+'</code> · '+
-      'KEY <code>'+CFG_KEY.slice(0,12)+'…</code> ('+CFG_KEY.length+'자)</p>'+
       '<button class="btn btn-primary" onclick="location.reload()">다시 시도</button>');
     return;
   }
