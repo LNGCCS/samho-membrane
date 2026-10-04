@@ -225,8 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v6.2";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-10-04 · 인증판 · 계정 연결 복구";
+const APP_VERSION = "v6.3";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-10-04 · 인증판 · 연결 오류 수정";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -317,7 +317,7 @@ function canGrant(){ return lv(5); }           /* 계정 승인·권한 부여: 
 var M = {
   userIn:function(r){ return {id:r.id,name:r.name,company:r.company,level:r.level,authUid:r.auth_uid||null,
     reqLevel:r.req_level||1,status:r.status,roles:r.roles||"",createdAt:Number(r.created_at),lastLogin:Number(r.last_login)}; },
-  userOut:function(u){ return {id:u.id,name:u.name,company:u.company,level:u.level,auth_uid:u.authUid||null,
+  userOut:function(u){ return {id:u.id,pass:"",name:u.name,company:u.company,level:u.level,auth_uid:u.authUid||null,
     req_level:u.reqLevel||1,read_only:false,pw_changed:true,status:u.status,roles:u.roles||"",
     created_at:u.createdAt||0,last_login:u.lastLogin||0}; },
   itemIn:function(r){ return {id:r.id,name:r.name,unit:r.unit,step:r.step||1,
@@ -573,7 +573,8 @@ function bindAuth(){
         if(su.error){ var r2=await db.auth.signInWithPassword({email:email,password:pw});
           if(r2.error){ S.authMsg={t:"e",m:"비밀번호가 일치하지 않습니다."}; return render(); } }
         var lk=await db.rpc("link_legacy",{p_id:id,p_pass:pw});
-        if(lk.error||lk.data!==true){ await signOutAll(); S.authMsg={t:"e",m:"계정 전환에 실패했습니다. 관리자에게 문의하세요."}; return render(); }
+        if(lk.error||lk.data!==true){ await signOutAll();
+          S.authMsg={t:"e",m:"계정 전환에 실패했습니다."+(lk.error?" (서버: "+lk.error.message+")":" 비밀번호가 기존 비밀번호와 다릅니다.")+" 관리자에게 문의하세요."}; return render(); }
       } else {
         S.authMsg={t:"e",m:/Email not confirmed/i.test(r.error.message)
           ?"이메일 확인 설정이 켜져 있습니다. 관리자에게 문의하세요 (Confirm email 해제 필요)."
@@ -586,9 +587,10 @@ function bindAuth(){
       /* 인증 계정은 있는데 프로필 연결이 안 된 경우(이전 시도에서 중단) → 기존 계정 연결 재시도 */
       var lk2=await db.rpc("link_legacy",{p_id:id,p_pass:pw});
       if(!lk2.error&&lk2.data===true) u=await currentProfile();
+      else S.lastLinkErr=lk2.error?("서버 오류: "+lk2.error.message):"기존 비밀번호와 일치하지 않음";
     }
     if(!u){ await signOutAll();
-      S.authMsg={t:"e",m:"이 아이디에 연결된 계정 정보를 찾지 못했습니다. 비밀번호가 맞다면 관리자에게 '계정 연결 초기화'를 요청하세요. 신규 사용자는 [계정 생성]을 진행하세요."};
+      S.authMsg={t:"e",m:"이 아이디에 연결된 계정 정보를 찾지 못했습니다. ("+(S.lastLinkErr||"원인 미상")+") 관리자에게 문의하거나, 신규 사용자는 [계정 생성]을 진행하세요."};
       return render(); }
     if(u.status==="pending"){ S.pendInfo=u; S.authMsg=null; return render(); }
     if(u.status==="suspended"){ await signOutAll(); S.authMsg={t:"e",m:"정지된 계정입니다."}; return render(); }
