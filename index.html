@@ -225,8 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v6.1";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-10-04 · 인증판 · 재고 현황 바로 등록 · 신청 이력";
+const APP_VERSION = "v6.2";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-10-04 · 인증판 · 계정 연결 복구";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -582,7 +582,14 @@ function bindAuth(){
       }
     }
     var u=await currentProfile();
-    if(!u){ await signOutAll(); S.authMsg={t:"e",m:"등록되지 않은 아이디입니다. 계정 생성을 먼저 진행하세요."}; return render(); }
+    if(!u){
+      /* 인증 계정은 있는데 프로필 연결이 안 된 경우(이전 시도에서 중단) → 기존 계정 연결 재시도 */
+      var lk2=await db.rpc("link_legacy",{p_id:id,p_pass:pw});
+      if(!lk2.error&&lk2.data===true) u=await currentProfile();
+    }
+    if(!u){ await signOutAll();
+      S.authMsg={t:"e",m:"이 아이디에 연결된 계정 정보를 찾지 못했습니다. 비밀번호가 맞다면 관리자에게 '계정 연결 초기화'를 요청하세요. 신규 사용자는 [계정 생성]을 진행하세요."};
+      return render(); }
     if(u.status==="pending"){ S.pendInfo=u; S.authMsg=null; return render(); }
     if(u.status==="suspended"){ await signOutAll(); S.authMsg={t:"e",m:"정지된 계정입니다."}; return render(); }
     u.lastLogin=Date.now();
