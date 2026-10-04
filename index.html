@@ -225,8 +225,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v5.9";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-10-05 · 소속 데이터 정리 (잘못된 소속 이관)";
+const APP_VERSION = "v6.1";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-10-04 · 인증판 · 재고 현황 바로 등록 · 신청 이력";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -260,7 +260,7 @@ let S = {
   user:null, tab:"dash", authTab:"login", authMsg:null, pendInfo:null,
   users:[], items:[], stocks:[], logs:[], requests:[], emergencies:[], stocktakes:[],
   co:null,                       /* 현재 보고 있는 업체 */
-  reqMonth:nextMonth(), dlvMonth:null, dlvSearch:"", dlvItem:null, reqView:"list", reqCat:"", reqSearch:"", reqScope:"freq", reqLimit:60,
+  reqMonth:nextMonth(), dlvMonth:null, histYear:null, histCat:"", histCo:"", histReq:false, histSearch:"", dlvSearch:"", dlvItem:null, reqView:"list", reqCat:"", reqSearch:"", reqScope:"freq", reqLimit:60,
   wMode:"out", wItem:null, wQty:0, wSearch:"", wMsg:null, wTeam:"",
   logFilter:{item:"",team:"",type:"",from:"",to:""},
   sync:"ok", lastSync:0, msg:{}
@@ -315,15 +315,15 @@ function canGrant(){ return lv(5); }           /* 계정 승인·권한 부여: 
 
 /* ── DB 매핑 ──────────────────────────────────────────────── */
 var M = {
-  userIn:function(r){ return {id:r.id,pass:r.pass,name:r.name,company:r.company,level:r.level,
+  userIn:function(r){ return {id:r.id,name:r.name,company:r.company,level:r.level,authUid:r.auth_uid||null,
     reqLevel:r.req_level||1,status:r.status,roles:r.roles||"",createdAt:Number(r.created_at),lastLogin:Number(r.last_login)}; },
-  userOut:function(u){ return {id:u.id,pass:u.pass,name:u.name,company:u.company,level:u.level,
+  userOut:function(u){ return {id:u.id,name:u.name,company:u.company,level:u.level,auth_uid:u.authUid||null,
     req_level:u.reqLevel||1,read_only:false,pw_changed:true,status:u.status,roles:u.roles||"",
     created_at:u.createdAt||0,last_login:u.lastLogin||0}; },
   itemIn:function(r){ return {id:r.id,name:r.name,unit:r.unit,step:r.step||1,
-    code:r.code||"",spec:r.spec||"",price:Number(r.price)||0,category:r.category||""}; },
+    code:r.code||"",spec:r.spec||"",price:Number(r.price)||0,category:r.category||"",discontinued:!!r.discontinued}; },
   itemOut:function(i){ return {id:i.id,name:i.name,unit:i.unit,stock:0,min_stock:0,step:i.step||1,
-    code:i.code||"",spec:i.spec||"",price:i.price||0,category:i.category||""}; },
+    code:i.code||"",spec:i.spec||"",price:i.price||0,category:i.category||"",discontinued:!!i.discontinued}; },
   stockIn:function(r){ return {id:r.id,company:r.company,itemId:r.item_id,qty:r.stock,minQty:r.min_stock}; },
   stockOut:function(s){ return {id:s.id,company:s.company,item_id:s.itemId,stock:s.qty,min_stock:s.minQty}; },
   logIn:function(r){ return {id:r.id,ts:Number(r.ts),type:r.type,company:r.company,itemId:r.item_id,
@@ -353,6 +353,16 @@ var M = {
     note:s.note,lines:s.lines,total:s.total}; }
 };
 
+/* ── Supabase Auth: 사번을 가상 이메일로 변환 ── */
+function authEmail(id){ return String(id).trim().toLowerCase().replace(/[^a-z0-9._-]/g,"")+"@busa.local"; }
+async function currentProfile(){
+  var ses=(await db.auth.getSession()).data.session;
+  if(!ses) return null;
+  var r=await db.from("users").select("*").eq("auth_uid",ses.user.id).limit(1);
+  if(r.error||!r.data||!r.data.length) return null;
+  return M.userIn(r.data[0]);
+}
+async function signOutAll(){ try{ await db.auth.signOut(); }catch(e){} ls("bz_session",null); }
 function setSync(v){ S.sync=v; var el=document.getElementById("syncDot");
   if(el) el.className="syncdot"+(v==="busy"?" busy":v==="err"?" err":""); }
 
@@ -476,7 +486,7 @@ function viewAuth(){
         '<div class="field"><label>비밀번호</label>'+
           '<input type="password" id="li_pw" placeholder="가입 시 설정한 비밀번호" autocomplete="current-password" required></div>'+
         '<button class="btn btn-primary btn-block" type="submit">로그인</button>'+
-        '<div class="hint">아이디는 본인 <b>사번</b>입니다. 계정은 관리자 승인 후 사용할 수 있습니다.</div>'+
+        '<div class="hint">아이디는 본인 <b>사번</b>입니다. 기존 계정은 기존 비밀번호 그대로 로그인하면 자동으로 전환됩니다.</div>'+
       '</form>'
       :
       '<form id="fSignup">'+
@@ -486,7 +496,7 @@ function viewAuth(){
           '<input type="text" id="su_no" placeholder="예: A540663" required>'+
           '<div class="hint">사번을 그대로 아이디로 사용합니다. 소속은 계정 정보와 불출 이력에 자동으로 기록됩니다.</div></div>'+
         '<div class="field"><label>비밀번호 설정</label>'+
-          '<input type="password" id="su_pw" placeholder="4자 이상" required>'+
+          '<input type="password" id="su_pw" placeholder="6자 이상" required>'+
           '<div class="hint">영문·숫자 사용을 권장합니다. 한글은 입력기 전환이 필요해 현장에서 불편합니다.</div></div>'+
         '<div class="field"><label>비밀번호 확인</label><input type="password" id="su_pw2" required></div>'+
         '<div class="field"><label>희망 권한 신청</label><select id="su_lv">'+lvOpts+'</select>'+
@@ -524,13 +534,12 @@ function viewPending(){
 
 function bindAuth(){
   var back=document.getElementById("pdBack");
-  if(back) back.onclick=function(){ S.pendInfo=null; S.authMsg=null; render(); };
+  if(back) back.onclick=async function(){ await signOutAll(); S.pendInfo=null; S.authMsg=null; render(); };
   var recheck=document.getElementById("pdCheck");
   if(recheck) recheck.onclick=async function(){
     recheck.disabled=true; recheck.textContent="확인 중…";
-    await pull();
-    var u=S.users.filter(function(x){ return x.id===S.pendInfo.id; })[0];
-    if(!u){ S.pendInfo=null; S.authMsg={t:"e",m:"계정 신청이 거절되어 삭제되었습니다. 다시 신청해 주세요."}; return render(); }
+    var u=await currentProfile();
+    if(!u){ await signOutAll(); S.pendInfo=null; S.authMsg={t:"e",m:"계정 신청이 거절되어 삭제되었습니다. 다시 신청해 주세요."}; return render(); }
     if(u.status==="approved"){
       S.pendInfo=null;
       S.authMsg={t:"o",m:"권한이 부여되었습니다. Lv."+u.level+" · "+LEVEL_NAME[u.level]+" 로 로그인하세요."};
@@ -552,16 +561,34 @@ function bindAuth(){
     e.preventDefault();
     var id=document.getElementById("li_id").value.trim();
     var pw=document.getElementById("li_pw").value;
-    await pull();
-    var u=S.users.filter(function(x){return x.id===id;})[0];
-    if(!u){ S.authMsg={t:"e",m:"등록되지 않은 아이디입니다."}; return render(); }
+    var btn=f.querySelector("button[type=submit]"); btn.disabled=true; btn.textContent="확인 중…";
+    var email=authEmail(id);
+    var r=await db.auth.signInWithPassword({email:email,password:pw});
+    if(r.error){
+      /* 인증 계정이 없으면 기존(전환 전) 계정인지 확인 → 같은 비밀번호로 자동 전환 */
+      var lg=await db.rpc("legacy_check",{p_id:id,p_pass:pw});
+      if(lg.data===true){
+        var su=await db.auth.signUp({email:email,password:pw});
+        if(su.error&&!/already/i.test(su.error.message)){ S.authMsg={t:"e",m:"계정 전환 중 오류: "+su.error.message}; return render(); }
+        if(su.error){ var r2=await db.auth.signInWithPassword({email:email,password:pw});
+          if(r2.error){ S.authMsg={t:"e",m:"비밀번호가 일치하지 않습니다."}; return render(); } }
+        var lk=await db.rpc("link_legacy",{p_id:id,p_pass:pw});
+        if(lk.error||lk.data!==true){ await signOutAll(); S.authMsg={t:"e",m:"계정 전환에 실패했습니다. 관리자에게 문의하세요."}; return render(); }
+      } else {
+        S.authMsg={t:"e",m:/Email not confirmed/i.test(r.error.message)
+          ?"이메일 확인 설정이 켜져 있습니다. 관리자에게 문의하세요 (Confirm email 해제 필요)."
+          :"아이디 또는 비밀번호가 일치하지 않습니다."};
+        return render();
+      }
+    }
+    var u=await currentProfile();
+    if(!u){ await signOutAll(); S.authMsg={t:"e",m:"등록되지 않은 아이디입니다. 계정 생성을 먼저 진행하세요."}; return render(); }
     if(u.status==="pending"){ S.pendInfo=u; S.authMsg=null; return render(); }
-    if(u.status==="suspended"){ S.authMsg={t:"e",m:"정지된 계정입니다."}; return render(); }
-    if(u.pass!==pw){ S.authMsg={t:"e",m:"비밀번호가 일치하지 않습니다."}; return render(); }
+    if(u.status==="suspended"){ await signOutAll(); S.authMsg={t:"e",m:"정지된 계정입니다."}; return render(); }
     u.lastLogin=Date.now();
-    await push(function(){ return db.from("users").upsert(M.userOut(u)); });
+    await db.from("users").update({last_login:u.lastLogin}).eq("id",u.id);
     S.user=u; S.authMsg=null; S.tab="dash"; S.co=null; ls("bz_session",u.id);
-    render(); startPoll();
+    await pullItems(); await pull(); render(); startPoll();
   };
 
   var g=document.getElementById("fSignup");
@@ -574,28 +601,30 @@ function bindAuth(){
     var pw2=document.getElementById("su_pw2").value;
     var rl=+document.getElementById("su_lv").value;
     if(!nm||!no){ S.authMsg={t:"e",m:"이름과 사번을 입력하세요."}; return render(); }
-    if(pw.length<4){ S.authMsg={t:"e",m:"비밀번호는 4자 이상이어야 합니다."}; return render(); }
+    if(!/^[A-Za-z0-9._-]+$/.test(no)){ S.authMsg={t:"e",m:"사번은 영문·숫자만 사용할 수 있습니다."}; return render(); }
+    if(pw.length<6){ S.authMsg={t:"e",m:"비밀번호는 6자 이상이어야 합니다."}; return render(); }
     if(pw!==pw2){ S.authMsg={t:"e",m:"비밀번호가 서로 다릅니다."}; return render(); }
-    await pull();
-    var id=no;
-    var dup=S.users.filter(function(u){return u.id===id;})[0];
-    if(dup){
-      S.authMsg={t:"e",m:"이미 등록된 사번입니다 ("+id+" · "+dup.company+" "+dup.name+"). 사번을 다시 확인하세요."};
-      return render(); }
-    var first=S.users.length===0;
-    var u={id:id,pass:pw,name:nm,company:co,level:first?5:1,reqLevel:first?5:rl,
-      status:first?"approved":"pending",createdAt:Date.now(),lastLogin:0};
-    if(!await push(function(){ return db.from("users").insert(M.userOut(u)); })) return;
-    if(first && S.items.length===0){
-      await push(function(){ return db.from("items").insert(seedItems().map(M.itemOut)); });
+    var btn=g.querySelector("button[type=submit]"); btn.disabled=true; btn.textContent="신청 중…";
+    var email=authEmail(no);
+    var su=await db.auth.signUp({email:email,password:pw});
+    if(su.error){
+      if(/already/i.test(su.error.message)){
+        /* 이미 인증 계정만 있는 경우(이전에 거절·삭제됨): 같은 비밀번호로 로그인되면 프로필만 다시 생성 */
+        var r2=await db.auth.signInWithPassword({email:email,password:pw});
+        if(r2.error){ S.authMsg={t:"e",m:"이미 등록된 사번입니다. 로그인하거나 비밀번호 초기화를 요청하세요."}; return render(); }
+      } else { S.authMsg={t:"e",m:"계정 생성 실패: "+su.error.message}; return render(); }
     }
-    if(first){
-      S.authTab="login";
-      S.authMsg={t:"o",m:"최초 가입자이므로 시스템 관리자(Lv.5)로 자동 승인되었습니다. 아이디: "+id};
-    } else {
-      S.pendInfo=u; S.authMsg=null;
-    }
-    render();
+    var ses=(await db.auth.getSession()).data.session;
+    if(!ses){ S.authMsg={t:"e",m:"세션을 만들지 못했습니다. 관리자에게 'Confirm email 해제' 설정을 요청하세요."}; return render(); }
+    var exist=await currentProfile();
+    if(exist){ S.pendInfo=exist.status==="pending"?exist:null;
+      S.authMsg=exist.status==="pending"?null:{t:"o",m:"이미 계정이 있습니다. 로그인하세요."}; await signOutAll(); return render(); }
+    var u={id:no,name:nm,company:co,level:1,reqLevel:rl,status:"pending",roles:"",authUid:ses.user.id,createdAt:Date.now(),lastLogin:0};
+    var ins=await db.from("users").insert(M.userOut(u));
+    if(ins.error){
+      S.authMsg={t:"e",m:/duplicate|unique/i.test(ins.error.message)?"이미 등록된 사번입니다 ("+no+"). 사번을 다시 확인하세요.":"프로필 생성 실패: "+ins.error.message};
+      await signOutAll(); return render(); }
+    S.pendInfo=u; S.authMsg=null; render();
   };
 }
 
@@ -609,6 +638,7 @@ function tabList(){
   t.push({k:"mylog",l:"나의 이력"});
   if(canRequest()) t.push({k:"emg",l:"긴급 신청",badge:emgOpen()});
   if(canRequest()) t.push({k:"req",l:"부자재 신청"});
+  if(lv(2)) t.push({k:"hist",l:"신청 이력"});
   if(lv(3)) t.push({k:"buy",l:"구매 취합",badge:buyOpenCount()});
   if(lv(3)) t.push({k:"dlv",l:"납품 배분"});
   if(lv(2)) t.push({k:"logs",l:lv(3)?"전체 로그":"업체 로그"});
@@ -654,19 +684,19 @@ function companyBar(){
 }
 
 function bindShell(){
-  document.getElementById("btnOut").onclick=function(){ ls("bz_session",null); S.user=null; stopPoll(); render(); };
+  document.getElementById("btnOut").onclick=async function(){ await signOutAll(); S.user=null; stopPoll(); render(); };
   document.getElementById("btnSync").onclick=async function(){ await pullItems(); await pull(); render(); toast("최신 데이터를 불러왔습니다."); };
   document.querySelectorAll("[data-tab]").forEach(function(el){
     el.onclick=async function(){ S.tab=el.dataset.tab; S.msg={}; S.wMsg=null; await pull(); render(); }; });
   var cs=document.getElementById("coSel");
   if(cs) cs.onchange=function(){ S.co=cs.value; S.wItem=null; S.wQty=0; render(); };
-  var fn={dash:bindDash,withdraw:bindWithdraw,emg:bindEmg,req:bindReq,buy:bindBuy,dlv:bindDlv,logs:bindLogs,
+  var fn={dash:bindDash,withdraw:bindWithdraw,emg:bindEmg,req:bindReq,hist:bindHist,buy:bindBuy,dlv:bindDlv,logs:bindLogs,
     stk:bindStk,colist:bindColist,grant:bindGrant,items:bindItems,me:bindMe}[S.tab];
   if(fn) fn();
 }
 
 function viewTab(){
-  var fn={dash:viewDash,withdraw:viewWithdraw,mylog:viewMyLog,emg:viewEmg,req:viewReq,buy:viewBuy,dlv:viewDlv,
+  var fn={dash:viewDash,withdraw:viewWithdraw,mylog:viewMyLog,emg:viewEmg,req:viewReq,hist:viewHist,buy:viewBuy,dlv:viewDlv,
     logs:viewLogs,stk:viewStk,colist:viewColist,grant:viewGrant,items:viewItems,me:viewMe}[S.tab];
   return fn?fn():"";
 }
@@ -735,13 +765,23 @@ function viewDash(){
     var q=x.stock.qty, mn=x.stock.minQty;
     var base=Math.max(mn*3,q,1), pct=Math.min(100,Math.round(q/base*100));
     var c=""; if(mn>0&&q<=mn) c="danger"; else if(mn>0&&q<=mn*1.5) c="warn";
-    return '<tr><td class="kr">'+esc(x.item.name)+'</td>'+
+    var act=canEditCo()?('<button class="btn btn-primary btn-sm dAct" data-id="'+esc(x.item.id)+'" data-mode="out">불출</button>'+
+      (canAddStock()?' <button class="btn btn-navy btn-sm dAct" data-id="'+esc(x.item.id)+'" data-mode="in">입고</button>'+
+        ' <button class="btn btn-ghost btn-sm dAct" data-id="'+esc(x.item.id)+'" data-mode="adj" title="실물 수량으로 보유량 맞추기">조정</button>':"")):"";
+    return '<tr'+(S.wItem===x.item.id?' style="background:#fff4ec;"':"")+'><td class="kr"><b>'+esc(x.item.name)+'</b>'+
+      (x.item.spec?'<div style="font-size:11px;color:var(--text-mute);">'+esc(x.item.spec)+'</div>':"")+'</td>'+
       '<td>'+nf(q)+' '+esc(x.item.unit)+'</td>'+
       '<td>'+(mn>0?nf(mn):"-")+'</td>'+
       '<td style="width:140px;"><div class="gauge"><div class="gauge-fill '+c+'" style="width:'+pct+'%"></div></div></td>'+
       '<td>'+(c==="danger"?'<span class="tag t-danger">부족</span>':
-              c==="warn"?'<span class="tag t-warn">주의</span>':'<span class="tag t-ok">정상</span>')+'</td></tr>';
+              c==="warn"?'<span class="tag t-warn">주의</span>':'<span class="tag t-ok">정상</span>')+'</td>'+
+      '<td style="white-space:nowrap;">'+act+'</td></tr>';
   }).join("");
+  var fsel=S.wItem?stockOf(co,S.wItem):null, fit=S.wItem?itemById(S.wItem):null; if(!fsel) fit=null;
+  var formPanel=fit?'<div class="panel" id="wFormPanel"><div class="panel-head"><div><h2>'+MODE_TITLE[S.wMode]+'</h2>'+
+      '<div class="sub">'+esc(co)+' · '+esc(fit.name)+' — 재고에 즉시 반영되고 이력이 남습니다</div></div>'+wModesHTML()+'</div>'+
+      '<div class="panel-body">'+wFormHTML(co,fit,fsel)+
+      '<button class="btn btn-ghost btn-sm" id="wClose" style="margin-top:10px;">닫기</button></div></div>':"";
 
   var recent=S.logs.filter(function(l){ return l.company===co; }).slice(0,10).map(logRow).join("");
 
@@ -764,14 +804,21 @@ function viewDash(){
   '<div class="panel"><div class="panel-head"><div><h2>'+esc(co)+' 재고 현황</h2>'+
     '<div class="sub">이 업체가 보관 중인 품목만 표시됩니다</div></div>'+
     (canExport()?'<button class="btn btn-ghost btn-sm" id="csvStock">Excel 내보내기</button>':"")+'</div>'+
-    '<div class="tablewrap"><table><thead><tr><th>품목</th><th>보유량</th><th>최소재고</th><th>수준</th><th>상태</th></tr></thead>'+
-    '<tbody>'+(rows||'<tr><td colspan="5" class="empty">등록된 취급 품목이 없습니다.</td></tr>')+'</tbody></table></div></div>'+
+    '<div class="tablewrap"><table><thead><tr><th>품목</th><th>보유량</th><th>최소재고</th><th>수준</th><th>상태</th><th>바로 등록</th></tr></thead>'+
+    '<tbody>'+(rows||'<tr><td colspan="6" class="empty">등록된 취급 품목이 없습니다.</td></tr>')+'</tbody></table></div></div>'+
+  (S.wMsg?'<div class="msg '+(S.wMsg.t==="e"?"msg-error":"msg-ok")+'">'+esc(S.wMsg.m)+'</div>':"")+
+  formPanel+
   '<div class="panel"><div class="panel-head"><div><h2>최근 입출고</h2><div class="sub">'+esc(co)+' · 최근 10건</div></div></div>'+
     '<div class="tablewrap"><table><thead><tr><th>일시</th><th>구분</th><th>업체</th><th>품목</th><th>수량</th><th>담당자</th><th>작업팀</th></tr></thead>'+
     '<tbody>'+(recent||'<tr><td colspan="7" class="empty">기록이 없습니다.</td></tr>')+'</tbody></table></div></div>';
 }
 
 function bindDash(){
+  document.querySelectorAll(".dAct").forEach(function(el){ el.onclick=function(){
+    S.wItem=el.dataset.id; S.wMode=el.dataset.mode; S.wQty=0; S.wMsg=null; S.wScroll=true; render(); }; });
+  var cl=document.getElementById("wClose"); if(cl) cl.onclick=function(){ S.wItem=null; S.wMsg=null; render(); };
+  bindWForm();
+  if(S.wScroll){ S.wScroll=false; var fp=document.getElementById("wFormPanel"); if(fp&&fp.scrollIntoView) fp.scrollIntoView({behavior:"smooth",block:"start"}); }
   var c=document.getElementById("csvStock");
   if(c) c.onclick=function(){ var co=curCo();
     exportCSV("재고현황_"+co,["업체","품목","단위","보유량","최소재고"],
@@ -821,110 +868,134 @@ function bindWPicks(){
   var g=document.getElementById("goColist");
   if(g) g.onclick=function(){ S.tab="colist"; S.msg={}; render(); };
 }
-function viewWithdraw(){
-  var co=curCo();
-
-  var sel=S.wItem?stockOf(co,S.wItem):null;
-  var it=S.wItem?itemById(S.wItem):null;
-  if(!sel) it=null;
-
-  var modes='<div class="segbtn '+(S.wMode==="out"?"on":"")+'" data-mode="out">불출 (−)</div>';
-  if(canAddStock()) modes+='<div class="segbtn '+(S.wMode==="in"?"on":"")+'" data-mode="in">입고 (+)</div>'+
-    '<div class="segbtn '+(S.wMode==="ret"?"on":"")+'" data-mode="ret">반납 (+)</div>';
-
-  var title={out:"부자재 불출 등록",in:"부자재 입고 등록",ret:"부자재 반납 등록"}[S.wMode];
-
-  return companyBar()+
-  (S.wMsg?'<div class="msg '+(S.wMsg.t==="e"?"msg-error":"msg-ok")+'">'+esc(S.wMsg.m)+'</div>':"")+
-  (!canAddStock()?'<div class="msg msg-info">수령자 권한입니다. 창고에서 가져간 수량을 차감 등록할 수 있습니다.</div>':"")+
-  '<div class="panel"><div class="panel-head"><div><h2>'+title+'</h2>'+
-    '<div class="sub">'+esc(co)+' 재고에 즉시 반영되고 이력이 남습니다.</div></div>'+
-    '<div class="seg">'+modes+'</div></div>'+
-  '<div class="panel-body">'+
-    '<div class="field"><label>1. 품목 선택</label>'+
-      '<div class="picker"><div class="picker-search">'+
-        '<input type="text" id="wSearch" placeholder="품목명 검색" value="'+esc(S.wSearch)+'"></div>'+
-      '<div class="picker-list" id="wPickList">'+wPickHTML()+
-      '</div></div></div>'+
-    (it?
-      '<div class="field"><label>2. 수량 입력 — '+esc(it.name)+'</label>'+
-      '<div class="qty-box">'+
-        '<div class="qty-display"><input type="number" id="wQty" inputmode="numeric" min="0" value="'+(S.wQty||"")+'" placeholder="0">'+
-          '<span class="qty-unit">'+esc(it.unit)+'</span></div>'+
-        '<div class="qty-rows">'+stepsFor(it).map(function(s){
-          return '<div class="qty-row">'+
-            '<button type="button" class="qbtn minus" data-add="'+(-s*10)+'">−'+nf(s*10)+'</button>'+
-            '<button type="button" class="qbtn minus" data-add="'+(-s)+'">−'+nf(s)+'</button>'+
-            '<button type="button" class="qbtn" data-add="'+s+'">+'+nf(s)+'</button>'+
-            '<button type="button" class="qbtn" data-add="'+(s*10)+'">+'+nf(s*10)+'</button></div>'; }).join("")+'</div>'+
-        '<div class="qchips">'+presetsFor(it).map(function(p){
-          return '<button type="button" class="qchip" data-set="'+p+'">'+nf(p)+'</button>'; }).join("")+
-          '<button type="button" class="qclear" data-set="0">초기화</button></div>'+
-        '<div class="qty-meta">기본 취급 단위 <b>'+nf(it.step||1)+esc(it.unit)+'</b> · '+esc(co)+' 보유량 <b>'+nf(sel.qty)+esc(it.unit)+'</b>'+
-        (S.wMode==="out"&&S.wQty>sel.qty?'<br><span style="color:var(--danger);font-weight:600;">보유량을 초과합니다. 실물 확인 후 진행하세요.</span>':"")+
-        '</div></div></div>'+
-      '<div class="field"><label>3. 사용 정보</label>'+
-        '<div class="form-row" style="margin-bottom:10px;">'+
-          '<div class="field"><label>'+(S.wMode==="in"?"입고 담당자":"가져가는 사람")+'</label>'+
-            '<input type="text" id="wTaker" value="'+esc(S.user.name)+'"></div>'+
-          '<div class="field"><label>'+(S.wMode==="in"?"비고 (입고처 등)":"작업팀")+'</label>'+
-            '<input type="text" id="wTeam" list="teamList" value="'+esc(S.wTeam)+'" placeholder="'+(S.wMode==="in"?"예: 8월 정기 입고":"예: 선행 1팀")+'">'+
-            '<datalist id="teamList">'+knownTeams().map(function(t){return '<option value="'+esc(t)+'">';}).join("")+'</datalist></div>'+
-        '</div>'+
-        '<div class="form-row"><div class="field"><label>작업 시점</label>'+
-          '<input type="datetime-local" id="wTime" value="'+nowLocal()+'"></div>'+
-          '<div class="field"></div></div></div>'+
-      '<button class="btn '+(S.wMode==="out"?"btn-primary":"btn-navy")+' btn-block" id="wSubmit"'+
-        ' style="margin-top:16px;padding:14px;font-size:15px;" '+((!S.wQty||!canEditCo())?"disabled":"")+'>'+
-        {out:"불출 등록",in:"입고 등록",ret:"반납 등록"}[S.wMode]+
-        (S.wQty?" ("+nf(S.wQty)+esc(it.unit)+")":"")+'</button>'
-      :'<div class="msg msg-info">위 목록에서 품목을 먼저 선택하세요.</div>')+
-  '</div></div>';
+var MODE_NAME={out:"불출 (−)",in:"입고 (+)",ret:"반납 (+)",adj:"재고 조정 (=)"};
+var MODE_TITLE={out:"부자재 불출 등록",in:"부자재 입고 등록",ret:"부자재 반납 등록",adj:"재고 수량 조정"};
+function wModesHTML(){
+  var m='<div class="segbtn '+(S.wMode==="out"?"on":"")+'" data-mode="out">불출 (−)</div>';
+  if(canAddStock()) m+='<div class="segbtn '+(S.wMode==="in"?"on":"")+'" data-mode="in">입고 (+)</div>'+
+    '<div class="segbtn '+(S.wMode==="ret"?"on":"")+'" data-mode="ret">반납 (+)</div>'+
+    '<div class="segbtn '+(S.wMode==="adj"?"on":"")+'" data-mode="adj" title="실물 수량을 입력해 보유량을 바로 맞춥니다">조정 (=)</div>';
+  return '<div class="seg">'+m+'</div>';
 }
-
-function bindWithdraw(){
+function wSubmitLabel(it){
+  var base={out:"불출 등록",in:"입고 등록",ret:"반납 등록",adj:"보유량 조정"}[S.wMode];
+  if(S.wMode==="adj") return base+(S.wQty!=null&&S.wQty!==""?" (실물 "+nf(S.wQty)+esc(it.unit)+")":"");
+  return base+(S.wQty?" ("+nf(S.wQty)+esc(it.unit)+")":"");
+}
+function wMetaHTML(co,it,sel){
+  var h='기본 취급 단위 <b>'+nf(it.step||1)+esc(it.unit)+'</b> · '+esc(co)+' 보유량 <b>'+nf(sel.qty)+esc(it.unit)+'</b>';
+  if(S.wMode==="out"&&S.wQty>sel.qty) h+='<br><span style="color:var(--danger);font-weight:600;">보유량을 초과합니다. 실물 확인 후 진행하세요.</span>';
+  if(S.wMode==="adj"){ var d=(+S.wQty||0)-sel.qty;
+    h+='<br>조정 차이 <b style="color:'+(d<0?"var(--danger)":d>0?"var(--info)":"var(--ok)")+'">'+(d>0?"+":"")+nf(d)+esc(it.unit)+'</b> (실물 − 시스템). 확정하면 보유량이 실물 수량으로 바뀌고 이력이 남습니다.'; }
+  return h;
+}
+/* 수량 입력·선택 폼 (재고 현황과 불출·입고 탭이 공용) */
+function wFormHTML(co,it,sel){
+  var isAdj=S.wMode==="adj";
+  return '<div class="field"><label>'+(isAdj?"실물 수량 입력":"수량 입력")+' — '+esc(it.name)+(it.spec?' <span style="font-weight:400;color:var(--text-mute);">'+esc(it.spec)+'</span>':"")+'</label>'+
+    '<div class="qty-box">'+
+      '<div class="qty-display"><input type="number" id="wQty" inputmode="numeric" min="0" value="'+(S.wQty||"")+'" placeholder="'+(isAdj?nf(sel.qty):"0")+'">'+
+        '<span class="qty-unit">'+esc(it.unit)+'</span></div>'+
+      '<div class="qty-rows">'+stepsFor(it).map(function(st){
+        return '<div class="qty-row">'+
+          '<button type="button" class="qbtn minus" data-add="'+(-st*10)+'">−'+nf(st*10)+'</button>'+
+          '<button type="button" class="qbtn minus" data-add="'+(-st)+'">−'+nf(st)+'</button>'+
+          '<button type="button" class="qbtn" data-add="'+st+'">+'+nf(st)+'</button>'+
+          '<button type="button" class="qbtn" data-add="'+(st*10)+'">+'+nf(st*10)+'</button></div>'; }).join("")+'</div>'+
+      '<div class="qchips">'+(isAdj?'<button type="button" class="qchip" data-set="'+sel.qty+'">현재 보유량 '+nf(sel.qty)+'</button>':"")+
+        presetsFor(it).map(function(pp){ return '<button type="button" class="qchip" data-set="'+pp+'">'+nf(pp)+'</button>'; }).join("")+
+        '<button type="button" class="qclear" data-set="0">초기화</button></div>'+
+      '<div class="qty-meta" id="wMeta">'+wMetaHTML(co,it,sel)+'</div></div></div>'+
+    '<div class="field"><label>사용 정보</label>'+
+      '<div class="form-row" style="margin-bottom:10px;">'+
+        '<div class="field"><label>'+(S.wMode==="in"?"입고 담당자":isAdj?"조정자":"가져가는 사람")+'</label>'+
+          '<input type="text" id="wTaker" value="'+esc(S.user.name)+'"></div>'+
+        '<div class="field"><label>'+(S.wMode==="in"?"비고 (입고처 등)":isAdj?"조정 사유":"작업팀")+'</label>'+
+          '<input type="text" id="wTeam" list="teamList" value="'+esc(S.wTeam)+'" placeholder="'+(S.wMode==="in"?"예: 8월 정기 입고":isAdj?"예: 실사 차이 보정":"예: 선행 1팀")+'">'+
+          '<datalist id="teamList">'+knownTeams().map(function(t){return '<option value="'+esc(t)+'">';}).join("")+'</datalist></div>'+
+      '</div>'+
+      '<div class="form-row"><div class="field"><label>작업 시점</label>'+
+        '<input type="datetime-local" id="wTime" value="'+nowLocal()+'"></div><div class="field"></div></div></div>'+
+    '<button class="btn '+(S.wMode==="out"?"btn-primary":"btn-navy")+' btn-block" id="wSubmit"'+
+      ' style="margin-top:16px;padding:14px;font-size:15px;" '+(((isAdj?S.wQty==null||S.wQty==="":!S.wQty)||!canEditCo())?"disabled":"")+'>'+wSubmitLabel(it)+'</button>';
+}
+/* 입력 중에는 화면을 다시 그리지 않고 버튼·안내만 갱신 → 입력란 포커스가 빠지면서 클릭이 씹히던 문제 해결 */
+function refreshWQty(){
+  var co=curCo(), it=itemById(S.wItem), sel=S.wItem?stockOf(co,S.wItem):null; if(!it||!sel) return;
+  var b=document.getElementById("wSubmit");
+  if(b){ b.disabled=(S.wMode==="adj"?(S.wQty==null||S.wQty===""):!S.wQty)||!canEditCo(); b.innerHTML=wSubmitLabel(it); }
+  var m=document.getElementById("wMeta"); if(m) m.innerHTML=wMetaHTML(co,it,sel);
+  var q=document.getElementById("wQty"); if(q&&document.activeElement!==q) q.value=(S.wQty==null?"":S.wQty);
+}
+function bindWForm(){
   document.querySelectorAll("[data-mode]").forEach(function(el){
-    el.onclick=function(){ S.wMode=el.dataset.mode; S.wMsg=null; render(); }; });
-  var se=document.getElementById("wSearch");
-  if(se) se.oninput=function(){ S.wSearch=se.value;
-    var box=document.getElementById("wPickList");
-    if(box){ box.innerHTML=wPickHTML(); bindWPicks(); } };
-  bindWPicks();
+    el.onclick=function(){ S.wMode=el.dataset.mode; S.wQty=0; S.wMsg=null; render(); }; });
   var q=document.getElementById("wQty");
-  if(q){ q.oninput=function(){ S.wQty=Math.max(0,parseInt(q.value,10)||0);
-    var b=document.getElementById("wSubmit"); if(b) b.disabled=!S.wQty; };
-    q.onblur=function(){ render(); }; }
+  if(q) q.oninput=function(){ S.wQty=(q.value===""?"":Math.max(0,parseInt(q.value,10)||0)); refreshWQty(); };
   document.querySelectorAll("[data-add]").forEach(function(el){
-    el.onclick=function(){ S.wQty=Math.max(0,(S.wQty||0)+(+el.dataset.add)); render(); }; });
+    el.onclick=function(){ S.wQty=Math.max(0,(+S.wQty||0)+(+el.dataset.add)); refreshWQty(); }; });
   document.querySelectorAll("[data-set]").forEach(function(el){
-    el.onclick=function(){ S.wQty=+el.dataset.set; render(); }; });
+    el.onclick=function(){ S.wQty=+el.dataset.set; refreshWQty(); }; });
   var tm=document.getElementById("wTeam"); if(tm) tm.oninput=function(){ S.wTeam=tm.value; };
-
   var sub=document.getElementById("wSubmit");
   if(sub) sub.onclick=async function(){
     if(!coGuard()) return;
-    var co=curCo(), it=itemById(S.wItem);
-    if(!it||!S.wQty) return;
-    if(S.wMode!=="out" && !canAddStock()){ toast("재고를 늘리는 권한이 없습니다.",true); return; }
+    var co=curCo(), it=itemById(S.wItem), sel=stockOf(co,S.wItem);
+    if(!it||!sel) return;
+    var isAdj=S.wMode==="adj";
+    if(!isAdj&&!S.wQty) return;
+    if(S.wMode!=="out" && !canAddStock()){ toast("재고를 늘리거나 조정할 권한이 없습니다.",true); return; }
     var taker=document.getElementById("wTaker").value.trim();
     var team=document.getElementById("wTeam").value.trim();
     var tv=document.getElementById("wTime").value;
-    if(!taker||(!team&&S.wMode==="out")){
-      S.wMsg={t:"e",m:"담당자와 작업팀은 반드시 입력해야 합니다."}; return render(); }
-    var qty=S.wQty, mode=S.wMode, delta=(mode==="out"?-qty:qty);
+    if(!taker||(!team&&(S.wMode==="out"||isAdj))){
+      S.wMsg={t:"e",m:isAdj?"조정자와 조정 사유를 입력해야 합니다.":"담당자와 작업팀은 반드시 입력해야 합니다."}; return render(); }
+    var mode=S.wMode, qty, delta;
+    if(isAdj){ var real=+S.wQty||0; delta=real-sel.qty; qty=Math.abs(delta);
+      if(delta===0){ toast("현재 보유량과 같습니다. 조정할 차이가 없습니다.",true); return; } }
+    else { qty=S.wQty; delta=(mode==="out"?-qty:qty); }
     sub.disabled=true; sub.textContent="저장 중…";
     var log={id:uid(),ts:tv?new Date(tv).getTime():Date.now(),type:mode,company:co,
-      itemId:it.id,itemName:it.name,unit:it.unit,qty:qty,taker:taker,team:team||"-",
+      itemId:it.id,itemName:it.name,unit:it.unit,qty:qty,taker:taker,
+      team:isAdj?("재고 조정 "+(delta>0?"+":"")+delta+" · "+team):(team||"-"),
       by:S.user.id,byName:S.user.name};
     var r=await push(function(){ return db.rpc("apply_stock_movement",
       {p_log:M.logOut(log),p_company:co,p_item_id:it.id,p_delta:delta}); });
     if(!r){ S.wMsg={t:"e",m:"저장에 실패했습니다. 다시 시도해 주세요."}; return render(); }
     await pull();
     var cur=stockOf(co,it.id);
-    S.wMsg={t:"o",m:it.name+" "+nf(qty)+it.unit+" "+({out:"불출",in:"입고",ret:"반납"}[mode])+
+    S.wMsg={t:"o",m:it.name+" "+(isAdj?("보유량 조정 ("+(delta>0?"+":"")+nf(delta)+it.unit+")"):(nf(qty)+it.unit+" "+({out:"불출",in:"입고",ret:"반납"}[mode])))+
       " 완료 · "+co+" 보유량 "+nf(cur?cur.qty:0)+it.unit};
-    S.wQty=0; S.wTeam=team; render();
+    S.wQty=0; S.wTeam=isAdj?"":team; render();
   };
+}
+function viewWithdraw(){
+  var co=curCo();
+  var sel=S.wItem?stockOf(co,S.wItem):null;
+  var it=S.wItem?itemById(S.wItem):null;
+  if(!sel) it=null;
+  return companyBar()+
+  (S.wMsg?'<div class="msg '+(S.wMsg.t==="e"?"msg-error":"msg-ok")+'">'+esc(S.wMsg.m)+'</div>':"")+
+  (!canAddStock()?'<div class="msg msg-info">수령자 권한입니다. 창고에서 가져간 수량을 차감 등록할 수 있습니다.</div>':"")+
+  '<div class="panel"><div class="panel-head"><div><h2>'+MODE_TITLE[S.wMode]+'</h2>'+
+    '<div class="sub">'+esc(co)+' 재고에 즉시 반영되고 이력이 남습니다. 재고 현황 탭에서도 품목 옆 버튼으로 바로 등록할 수 있습니다.</div></div>'+
+    wModesHTML()+'</div>'+
+  '<div class="panel-body">'+
+    '<div class="field"><label>1. 품목 선택</label>'+
+      '<div class="picker"><div class="picker-search">'+
+        '<input type="text" id="wSearch" placeholder="품목명 검색" value="'+esc(S.wSearch)+'"></div>'+
+      '<div class="picker-list" id="wPickList">'+wPickHTML()+
+      '</div></div></div>'+
+    (it?wFormHTML(co,it,sel):'<div class="msg msg-info">위 목록에서 품목을 먼저 선택하세요.</div>')+
+  '</div></div>';
+}
+function bindWithdraw(){
+  var se=document.getElementById("wSearch");
+  if(se) se.oninput=function(){ S.wSearch=se.value;
+    var box=document.getElementById("wPickList");
+    if(box){ box.innerHTML=wPickHTML(); bindWPicks(); } };
+  bindWPicks();
+  bindWForm();
 }
 
 /* ── 나의 이력 ────────────────────────────────────────────── */
@@ -1210,7 +1281,8 @@ function reqAddData(){
     var pd=pendingOf(co,i.id);
     var drafted=(i.id in dr);
     return '<tr'+(pd.ordered?' style="background:#fdf6f4;"':(drafted?' style="background:#fffbf3;"':""))+'><td style="font-size:11px;">'+esc(i.code||i.id)+'</td>'+
-      '<td class="kr"><b>'+esc(i.name)+'</b>'+(i.spec?'<div style="font-size:11px;color:var(--text-mute);">'+esc(i.spec)+'</div>':"")+'</td>'+
+      '<td class="kr"'+(i.discontinued?' style="opacity:.55;"':"")+'><b>'+esc(i.name)+'</b>'+(i.discontinued?' <span class="tag t-grey" title="더 이상 쓰지 않는 품목입니다">미사용</span>':"")+
+        (i.spec?'<div style="font-size:11px;color:var(--text-mute);">'+esc(i.spec)+'</div>':"")+'</td>'+
       '<td>'+esc(i.unit)+'</td><td>'+won(i.price)+'</td>'+
       '<td>'+pendingCell(pd,i.unit)+'</td>'+
       '<td>'+(lockHtml?'<div style="margin-bottom:3px;">'+lockHtml+'</div>':"")+
@@ -1554,6 +1626,88 @@ function bindReq(){
           r.requestedQty==null?"":r.requestedQty,r.adjustedQty==null?"":r.adjustedQty,
           finalQty(r),finalQty(r)*(it.price||0),stName[r.status]||r.status,
           r.orderedAt?fmt(r.orderedAt):"",r.receivedQty||"",r.receivedAt?fmt(r.receivedAt):"",r.comment||""]; })); };
+}
+
+/* ══════════════════════════════════════════════════════════
+   신청 이력 (Lv.2 이상) — 품목별 × 월별 구매 수량, 분류별 보기
+   ══════════════════════════════════════════════════════════ */
+function histYear(){ return S.histYear||String(new Date().getFullYear()); }
+function histData(){
+  var y=histYear(), cat=S.histCat||(catList()[0]||""), co=S.histCo||"", q=(S.histSearch||"").toLowerCase(), incReq=!!S.histReq;
+  var by={};
+  S.requests.forEach(function(r){
+    if(!r.month||r.month.slice(0,4)!==y) return;
+    if(co&&r.company!==co) return;
+    var purchased=(r.status==="ordered"||r.status==="done");
+    if(!purchased&&!(incReq&&r.status==="req")) return;
+    var fq=finalQty(r); if(!(fq>0)) return;
+    var it=itemById(r.itemId)||{id:r.itemId,name:r.itemName,spec:"",code:r.itemId,unit:"",price:0,category:"",discontinued:false};
+    if((it.category||"")!==cat) return;
+    if(q&&(it.name+" "+(it.spec||"")+" "+(it.code||"")).toLowerCase().indexOf(q)<0) return;
+    var g=by[it.id]||(by[it.id]={it:it,m:[0,0,0,0,0,0,0,0,0,0,0,0],req:[0,0,0,0,0,0,0,0,0,0,0,0],total:0,amt:0,cos:{}});
+    var mi=parseInt(r.month.slice(5,7),10)-1;
+    if(purchased){ g.m[mi]+=fq; g.total+=fq; g.amt+=fq*(it.price||0); } else { g.req[mi]+=fq; }
+    g.cos[r.company]=1;
+  });
+  var groups=Object.keys(by).map(function(k){ return by[k]; })
+    .sort(function(a,b){ return (a.it.discontinued?1:0)-(b.it.discontinued?1:0)||a.it.name.localeCompare(b.it.name,"ko"); });
+  var colTot=[0,0,0,0,0,0,0,0,0,0,0,0], grand=0, amt=0;
+  groups.forEach(function(g){ g.m.forEach(function(v,i){ colTot[i]+=v; }); grand+=g.total; amt+=g.amt; });
+  var rows=groups.map(function(g){ var it=g.it;
+    return '<tr'+(it.discontinued?' style="opacity:.55;background:#f7f7f7;"':"")+'>'+
+      '<td style="font-size:11px;">'+esc(it.code||it.id)+'</td>'+
+      '<td class="kr"><b>'+esc(it.name)+'</b>'+(it.discontinued?' <span class="tag t-grey">미사용</span>':"")+
+        (it.spec?'<div style="font-size:11px;color:var(--text-mute);">'+esc(it.spec)+'</div>':"")+'</td>'+
+      '<td>'+won(it.price)+'</td><td>'+esc(it.unit||"")+'</td>'+
+      g.m.map(function(v,i){ var rq=g.req[i];
+        return '<td style="text-align:right;'+(v?"":"color:#c9d3db;")+'">'+(v?nf(v):"·")+
+          (rq?'<div style="font-size:9.5px;color:var(--warn);" title="미발주 신청">+'+nf(rq)+'</div>':"")+'</td>'; }).join("")+
+      '<td style="text-align:right;font-weight:700;background:#f7f9fb;">'+nf(g.total)+'</td>'+
+      '<td style="text-align:right;white-space:nowrap;background:#f7f9fb;">'+won(g.amt)+'</td>'+
+      '<td class="kr" style="font-size:11px;color:var(--text-mute);">'+Object.keys(g.cos).map(esc).join(", ")+'</td></tr>'; }).join("")
+    ||'<tr><td colspan="18" class="empty">'+esc(y)+'년 '+esc(cat)+' 분류에 구매 이력이 없습니다.</td></tr>';
+  var foot='<tr style="background:#eef2f6;font-weight:700;"><td colspan="4">계</td>'+
+    colTot.map(function(v){ return '<td style="text-align:right;">'+(v?nf(v):"·")+'</td>'; }).join("")+
+    '<td style="text-align:right;">'+nf(grand)+'</td><td style="text-align:right;white-space:nowrap;">'+won(amt)+'</td><td></td></tr>';
+  return {rows:rows,foot:foot,groups:groups,cat:cat,sub:nf(groups.length)+'품목 · 구매 합계 '+nf(grand)+' · '+won(amt)};
+}
+function viewHist(){
+  var d=histData(), y=histYear();
+  var years=[]; S.requests.forEach(function(r){ if(r.month){ var yy=r.month.slice(0,4); if(years.indexOf(yy)<0) years.push(yy); } });
+  if(years.indexOf(y)<0) years.push(y); years.sort().reverse();
+  var cats=catList();
+  return '<div class="msg msg-info"><b>'+esc(y)+'년 '+esc(d.cat)+'</b> 품목별 월간 구매 수량입니다. 모든 업체의 신청을 합산하며(업체 선택 가능), 발주·입고된 수량을 기준으로 집계합니다.'+
+    (S.histReq?' 주황 작은 숫자는 아직 발주 전인 신청 수량입니다.':'')+' 회색 <b>미사용</b> 품목은 발주 담당자가 품목 마스터에서 지정한 더 이상 쓰지 않는 품목입니다.</div>'+
+  '<div class="panel"><div class="panel-head"><div><h2>신청 이력</h2><div class="sub" id="hSub">'+d.sub+'</div></div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+
+      '<select id="hYear" style="width:auto;padding:7px 9px;">'+years.map(function(v){ return '<option value="'+v+'" '+(v===y?"selected":"")+'>'+v+'년</option>'; }).join("")+'</select>'+
+      (lv(2)?'<select id="hCo" style="width:auto;padding:7px 9px;"><option value="">전체 업체</option>'+pickableCos().map(function(c){ return '<option value="'+esc(c)+'" '+(c===S.histCo?"selected":"")+'>'+esc(c)+'</option>'; }).join("")+'</select>':"")+
+      '<label class="chk" style="padding:6px 10px;"><input type="checkbox" id="hReq" '+(S.histReq?"checked":"")+'> <span style="font-size:12.5px;">미발주 신청 포함</span></label>'+
+      (canExport()?'<button class="btn btn-ghost btn-sm" id="csvHist">Excel</button>':"")+
+    '</div></div>'+
+  '<div class="panel-body">'+
+    '<div class="seg" style="flex-wrap:wrap;margin-bottom:12px;">'+cats.map(function(c){ return '<div class="segbtn '+(c===d.cat?"on":"")+'" data-hcat="'+esc(c)+'">'+esc(c)+'</div>'; }).join("")+'</div>'+
+    '<input type="text" id="hSearch" placeholder="자재명·규격·자재번호 검색" value="'+esc(S.histSearch||"")+'" style="margin-bottom:12px;">'+
+    '<div class="tablewrap"><table style="min-width:1250px;"><thead><tr><th>자재번호</th><th>자재명 / 규격</th><th>단가</th><th>단위</th>'+
+      [1,2,3,4,5,6,7,8,9,10,11,12].map(function(mm){ return '<th style="text-align:right;">'+mm+'월</th>'; }).join("")+
+      '<th style="text-align:right;">계</th><th style="text-align:right;">금액</th><th>신청 업체</th></tr></thead>'+
+      '<tbody id="hBody">'+d.rows+'</tbody><tfoot id="hFoot">'+d.foot+'</tfoot></table></div>'+
+  '</div></div>';
+}
+function bindHist(){
+  var y=document.getElementById("hYear"); if(y) y.onchange=function(){ S.histYear=y.value; render(); };
+  var c=document.getElementById("hCo"); if(c) c.onchange=function(){ S.histCo=c.value; render(); };
+  var r=document.getElementById("hReq"); if(r) r.onchange=function(){ S.histReq=r.checked; render(); };
+  document.querySelectorAll("[data-hcat]").forEach(function(el){ el.onclick=function(){ S.histCat=el.dataset.hcat; render(); }; });
+  var se=document.getElementById("hSearch");
+  if(se) se.oninput=function(){ S.histSearch=se.value; var d=histData();
+    var b=document.getElementById("hBody"); if(b) b.innerHTML=d.rows;
+    var f=document.getElementById("hFoot"); if(f) f.innerHTML=d.foot;
+    var sb=document.getElementById("hSub"); if(sb) sb.textContent=d.sub; };
+  var x=document.getElementById("csvHist");
+  if(x) x.onclick=function(){ var d=histData(), yy=histYear();
+    exportCSV("신청이력_"+yy+"_"+d.cat,["연도","분류","자재번호","자재명","규격","단가","단위"].concat([1,2,3,4,5,6,7,8,9,10,11,12].map(function(m){ return m+"월"; })).concat(["계","금액","미사용","신청 업체"]),
+      d.groups.map(function(g){ var it=g.it; return [yy,d.cat,it.code||it.id,it.name,it.spec||"",it.price||0,it.unit||""].concat(g.m).concat([g.total,g.amt,it.discontinued?"미사용":"",Object.keys(g.cos).join("/")]); })); };
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -2205,7 +2359,7 @@ function viewGrant(){
           '<td>'+(u.lastLogin?fmt(u.lastLogin,true):"미접속")+'</td>'+
           '<td>'+(u.status==="suspended"?'<span class="tag t-grey">정지</span>':'<span class="tag t-ok">사용</span>')+
             ((u.roles||"").indexOf("procure")>=0?' <span class="tag t-danger">발주 담당</span>':"")+
-            '</td>'+
+            (u.authUid?"":' <span class="tag t-warn" title="첫 로그인 시 자동 전환됩니다">전환 전</span>')+'</td>'+
           '<td>'+(self?"":(u.status==="suspended"
             ?'<button class="btn btn-ghost btn-sm uRe" data-id="'+esc(u.id)+'">복구</button>'
             :'<button class="btn btn-ghost btn-sm uSp" data-id="'+esc(u.id)+'">정지</button>')+
@@ -2290,10 +2444,11 @@ function bindGrant(){
     saveU(u,u.name+"의 발주 담당을 해제했습니다."); }; });
   document.querySelectorAll(".uPw").forEach(function(el){ el.onclick=function(){
     var u=U(el.dataset.id);
-    var np=prompt(u.name+" 계정의 새 비밀번호를 입력하세요 (4자 이상, 영문·숫자 권장)");
+    var np=prompt(u.name+" 계정의 새 비밀번호를 입력하세요 (6자 이상, 영문·숫자 권장)");
     if(np===null) return;
-    if(np.trim().length<4){ alert("4자 이상 입력하세요."); return; }
-    u.pass=np.trim(); saveU(u,"비밀번호가 초기화되었습니다."); }; });
+    if(np.trim().length<6){ alert("6자 이상 입력하세요."); return; }
+    db.rpc("admin_reset_password",{p_id:u.id,p_new:np.trim()}).then(function(r){
+      if(r.error) toast("초기화 실패: "+r.error.message,true); else toast(u.name+" 비밀번호가 초기화되었습니다."); }); }; });
   var c=document.getElementById("csvUsers");
   if(c) c.onclick=function(){ exportCSV("사용자권한",["아이디","이름","소속","권한","권한명","신청권한","상태","최근접속"],
     S.users.map(function(u){ return [u.id,u.name,u.company,"Lv."+u.level,LEVEL_NAME[u.level],
@@ -2320,10 +2475,11 @@ function itemRowsData(){
     '<td><input type="text" class="mU" value="'+esc(i.unit)+'" style="width:56px"></td>'+
     '<td><input type="number" class="mW" value="'+(i.price||0)+'" style="width:90px"></td>'+
     '<td><input type="number" class="mP" value="'+(i.step||1)+'" style="width:70px"></td>'+
+    '<td style="text-align:center;"><input type="checkbox" class="mD" '+(i.discontinued?"checked":"")+(isProcurer()?"":" disabled title=\"발주 담당자만 변경할 수 있습니다\"")+' style="width:auto;"></td>'+
     '<td>'+(usage[i.id]||0)+'</td>'+
     '<td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm mSave" data-id="'+esc(i.id)+'">저장</button> '+
       '<button class="btn btn-danger btn-sm mDel" data-id="'+esc(i.id)+'">삭제</button></td></tr>'; }).join("")
-    ||'<tr><td colspan="9" class="empty">검색 결과가 없습니다.</td></tr>';
+    ||'<tr><td colspan="10" class="empty">검색 결과가 없습니다.</td></tr>';
   return {rows:rows,cnt:pool.length};
 }
 function viewItems(){
@@ -2341,7 +2497,7 @@ function viewItems(){
       '<input type="text" id="iSearch" placeholder="자재명·규격·자재번호 검색" value="'+esc(S.itmSearch||"")+'" style="flex:2;">'+
     '</div>'+
     '<div class="tablewrap"><table style="min-width:980px;"><thead><tr>'+
-      '<th>자재번호</th><th>분류</th><th>자재명</th><th>규격</th><th>단위</th><th>단가(원)</th><th>취급단위</th><th>사용</th><th></th></tr></thead>'+
+      '<th>자재번호</th><th>분류</th><th>자재명</th><th>규격</th><th>단위</th><th>단가(원)</th><th>취급단위</th><th title="더 이상 쓰지 않는 품목 표시 (발주 담당)">미사용</th><th>사용</th><th></th></tr></thead>'+
       '<tbody id="iBody">'+d.rows+'</tbody></table></div>'+
     '<div style="margin-top:16px;border-top:1px solid var(--steel-line);padding-top:14px;">'+
       '<div style="font-size:12px;font-weight:700;margin-bottom:8px;">신규 품목 추가 (Lv.4)</div>'+
@@ -2366,6 +2522,7 @@ function bindItemRowBtns(){
       unit:tr.querySelector(".mU").value.trim()||"EA",price:+tr.querySelector(".mW").value||0,
       category:tr.querySelector(".mC").value,
       step:Math.max(1,parseInt(tr.querySelector(".mP").value,10)||1)};
+    var dchk=tr.querySelector(".mD"); if(dchk&&isProcurer()) o.discontinued=!!dchk.checked;
     if(!o.name){ alert("자재명을 입력하세요."); return; }
     if(await push(function(){ return db.from("items").update(o).eq("id",el.dataset.id); },"저장되었습니다.")){
       await pullItems(); render(); } }; });
@@ -2419,7 +2576,7 @@ function viewMe(){
       '<div class="field"><label>소속</label><input type="text" value="'+esc(u.company)+'" disabled></div>'+
       '<div class="field"><label>권한</label><input type="text" value="Lv.'+u.level+' · '+esc(LEVEL_NAME[u.level])+'" disabled></div></div>'+
       '<div style="border-top:1px solid var(--steel-line);padding-top:14px;max-width:420px;">'+
-        '<div class="field"><label>새 비밀번호</label><input type="password" id="pw1" placeholder="4자 이상, 영문·숫자 권장"></div>'+
+        '<div class="field"><label>새 비밀번호</label><input type="password" id="pw1" placeholder="6자 이상, 영문·숫자 권장"></div>'+
         '<div class="field"><label>새 비밀번호 확인</label><input type="password" id="pw2"></div>'+
         '<button class="btn btn-primary" id="pwSave">비밀번호 변경</button></div></div></div>'+
   '<div class="panel"><div class="panel-head"><div><h2>내 권한 범위</h2></div></div>'+
@@ -2429,6 +2586,9 @@ function viewMe(){
      ["부자재 신청 (월별)",canRequest()],
      ["긴급 신청 접수",canRequest()],
      ["업체 취급 품목 관리 (마스터에서 가져오기)",lv(2)],
+     ["재고 현황에서 바로 불출·입고·조정",lv(2)],
+     ["신청 이력 (품목별 월간 구매 수량)",lv(2)],
+     ["미사용 품목 지정 (품목 마스터)",isProcurer()],
      ["재고 실사",lv(2)],
      ["전 업체 조회·관리",lv(3)],
      ["부서 공구실 재고·신청 수정",lv(4)],
@@ -2456,11 +2616,11 @@ function bindMe(){
   var b=document.getElementById("pwSave");
   if(b) b.onclick=async function(){
     var a=document.getElementById("pw1").value, c=document.getElementById("pw2").value;
-    if(a.length<4){ alert("4자 이상 입력하세요."); return; }
+    if(a.length<6){ alert("6자 이상 입력하세요."); return; }
     if(a!==c){ alert("두 비밀번호가 일치하지 않습니다."); return; }
-    S.user.pass=a;
-    if(await push(function(){ return db.from("users").upsert(M.userOut(S.user)); },"비밀번호가 변경되었습니다.")){
-      S.msg.me="비밀번호가 변경되었습니다."; await pull(); render(); } };
+    var r=await db.auth.updateUser({password:a});
+    if(r.error){ toast("변경 실패: "+r.error.message,true); return; }
+    toast("비밀번호가 변경되었습니다."); S.msg.me="비밀번호가 변경되었습니다."; render(); };
   var k=document.getElementById("bkup");
   if(k) k.onclick=function(){ download("부자재백업_"+new Date().toISOString().slice(0,10)+".json",
     JSON.stringify({exportedAt:new Date().toISOString(),users:S.users,items:S.items,stocks:S.stocks,
@@ -2548,38 +2708,44 @@ function exportCSV(name,head,rows){
 (async function main(){
   document.getElementById("app").innerHTML=
     '<div style="padding:70px;text-align:center;color:#5f7080;font-size:13px;">서버에서 불러오는 중…</div>';
-  var okItems=await pullItems();
-  if(!okItems || !await pull()){
-    var e=LAST_ERR||{};
-    var raw=[e.message,e.hint,e.details,e.code].filter(Boolean).join(" | ")||"알 수 없는 오류";
-    var t=raw.toLowerCase(), cause, fix;
-    if(t.indexOf("invalid api key")>=0||t.indexOf("jwt")>=0||t.indexOf("401")>=0||t.indexOf("no api key")>=0){
-      cause="API 키가 유효하지 않습니다 (401).";
-      fix='<ul style="line-height:1.9;font-size:13.5px;"><li>Supabase <code>Project Settings → API</code>에서 <b>복사 버튼</b>으로 키를 다시 복사하세요.</li></ul>';
-    } else if(t.indexOf("does not exist")>=0||t.indexOf("relation")>=0||t.indexOf("schema cache")>=0||t.indexOf("pgrst")>=0){
-      cause="데이터베이스 테이블이 준비되지 않았습니다.";
-      fix='<ul style="line-height:1.9;font-size:13.5px;"><li>Supabase <code>SQL Editor</code>에서 설정 SQL을 실행했는지 확인하세요.</li></ul>';
-    } else if(t.indexOf("row-level security")>=0||t.indexOf("policy")>=0){
-      cause="접근 규칙(RLS)이 설정되지 않았습니다.";
-      fix='<ul style="line-height:1.9;font-size:13.5px;"><li>Supabase <code>SQL Editor</code>에서 <code>supabase_rls_fix.sql</code>을 실행하세요.</li></ul>';
-    } else if(t.indexOf("failed to fetch")>=0||t.indexOf("networkerror")>=0){
-      cause="서버 주소에 접속하지 못했습니다.";
-      fix='<ul style="line-height:1.9;font-size:13.5px;"><li><code>SUPABASE_URL</code> 형식을 확인하세요. 사내망 차단 가능성도 있습니다.</li></ul>';
-    } else { cause="예상하지 못한 오류입니다."; fix='<ul style="line-height:1.9;font-size:13.5px;"><li>아래 오류 내용을 그대로 전달해 주세요.</li></ul>'; }
-    setupScreen("서버에 연결하지 못했습니다",
-      '<p style="line-height:1.7;font-size:14px;"><b>'+cause+'</b></p>'+fix+
-      '<div style="margin:16px 0;padding:12px;background:#f3f6f8;border-left:3px solid #d1462f;border-radius:3px;font-family:IBM Plex Mono;font-size:12px;word-break:break-all;color:#485663;">'+
-      String(raw).replace(/</g,"&lt;")+'</div>'+
-      '<button class="btn btn-primary" onclick="location.reload()">다시 시도</button>');
-    return;
-  }
   checkVersion();
-  var sid=ls("bz_session");
-  if(sid){ var u=S.users.filter(function(x){ return x.id===sid&&x.status==="approved"; })[0];
-    if(u){ S.user=u; startPoll(); } }
-  if(!S.user&&S.users.length===0){
-    S.authTab="signup";
-    S.authMsg={t:"o",m:"첫 사용입니다. 시스템 관리자(Lv.5) 계정을 먼저 만드세요. 최초 가입자는 자동 승인됩니다."};
+  /* 로그인 세션이 있으면 프로필을 찾아 자동 로그인 */
+  var prof=null;
+  try{ prof=await currentProfile(); }catch(e){ console.error(e); }
+  if(prof&&prof.status==="approved"){
+    S.user=prof;
+    var okItems=await pullItems();
+    if(!okItems || !await pull()){
+      var e=LAST_ERR||{};
+      var raw=[e.message,e.hint,e.details,e.code].filter(Boolean).join(" | ")||"알 수 없는 오류";
+      var t=raw.toLowerCase(), cause, fix;
+      if(t.indexOf("invalid api key")>=0||t.indexOf("jwt")>=0||t.indexOf("401")>=0||t.indexOf("no api key")>=0){
+        cause="API 키가 유효하지 않습니다 (401).";
+        fix='<ul style="line-height:1.9;font-size:13.5px;"><li>Supabase <code>Project Settings → API</code>에서 <b>복사 버튼</b>으로 키를 다시 복사하세요.</li></ul>';
+      } else if(t.indexOf("does not exist")>=0||t.indexOf("relation")>=0||t.indexOf("schema cache")>=0||t.indexOf("pgrst")>=0||t.indexOf("function")>=0){
+        cause="데이터베이스가 v6 인증 구조로 준비되지 않았습니다.";
+        fix='<ul style="line-height:1.9;font-size:13.5px;"><li>Supabase <code>SQL Editor</code>에서 <code>supabase_v7_auth.sql</code>을 실행하세요.</li></ul>';
+      } else if(t.indexOf("row-level security")>=0||t.indexOf("policy")>=0||t.indexOf("permission")>=0){
+        cause="접근 권한 규칙에 막혔습니다.";
+        fix='<ul style="line-height:1.9;font-size:13.5px;"><li><code>supabase_v7_auth.sql</code>이 실행되었는지, 이 계정이 승인 상태인지 확인하세요.</li></ul>';
+      } else if(t.indexOf("failed to fetch")>=0||t.indexOf("networkerror")>=0){
+        cause="서버 주소에 접속하지 못했습니다.";
+        fix='<ul style="line-height:1.9;font-size:13.5px;"><li><code>SUPABASE_URL</code> 형식을 확인하세요. 사내망 차단 가능성도 있습니다.</li></ul>';
+      } else { cause="예상하지 못한 오류입니다."; fix='<ul style="line-height:1.9;font-size:13.5px;"><li>아래 오류 내용을 그대로 전달해 주세요.</li></ul>'; }
+      setupScreen("서버에 연결하지 못했습니다",
+        '<p style="line-height:1.7;font-size:14px;"><b>'+cause+'</b></p>'+fix+
+        '<div style="margin:16px 0;padding:12px;background:#f3f6f8;border-left:3px solid #d1462f;border-radius:3px;font-family:IBM Plex Mono;font-size:12px;word-break:break-all;color:#485663;">'+
+        String(raw).replace(/</g,"&lt;")+'</div>'+
+        '<button class="btn btn-primary" onclick="location.reload()">다시 시도</button> '+
+        '<button class="btn btn-ghost" id="setupOut">로그아웃</button>');
+      var so=document.getElementById("setupOut"); if(so) so.onclick=async function(){ await signOutAll(); location.reload(); };
+      return;
+    }
+    startPoll();
+  } else if(prof&&prof.status==="pending"){
+    S.pendInfo=prof;
+  } else if(prof&&prof.status==="suspended"){
+    await signOutAll(); S.authMsg={t:"e",m:"정지된 계정입니다."};
   }
   render();
   setInterval(function(){ if(!S.user) checkVersion(); },180000);
