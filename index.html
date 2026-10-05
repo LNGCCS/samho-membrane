@@ -81,7 +81,13 @@
   .duty{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;color:#fff;font-size:12.5px;padding:0 8px;}
   .duty b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .duty .duty-l{color:#9fb4c4;font-size:11px;white-space:nowrap;}
-  @media(max-width:700px){.duty{font-size:11.5px;padding:0 4px;}.duty .duty-l{display:none;}.duty b:before{content:"당직 ";color:#9fb4c4;font-weight:500;}}
+  @media(max-width:700px){
+    .topbar{height:auto;min-height:56px;flex-wrap:wrap;}
+    .topbar .brand,.topbar .who{height:56px;}
+    .duty{order:3;flex-basis:100%;height:26px;margin:0 -16px;padding:0 12px;background:#0a1826;border-top:1px solid #173a52;font-size:12px;justify-content:center;}
+    .duty .duty-l{font-size:11px;}
+    .tabs{top:82px;}
+  }
   .who{display:flex;align-items:center;gap:9px;flex:none;}
   .lvbadge{font-family:'IBM Plex Mono';font-size:10.5px;font-weight:700;color:#0d2436;background:var(--accent);
     padding:3px 6px;border-radius:2px;}
@@ -239,8 +245,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v6.4";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-10-05 · 재고 현황 통합·검색 · 당직자 · 새로고침 개선 · 신청 재고/소요 열";
+const APP_VERSION = "v6.5";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-10-06 · 바로 등록 클릭 수정 · 월 소요수량 입력 · 모바일 당직자 표시";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -267,7 +273,7 @@ if(CFG_URL.indexOf("http")!==0 || CFG_KEY.length<20){
   return;
 }
 const db = window.supabase.createClient(CFG_URL, CFG_KEY);
-let LAST_ERR = null;
+let LAST_ERR = null; var LAST_PUSH_ERR = "";
 
 /* ── 상태 ─────────────────────────────────────────────────── */
 let S = {
@@ -348,9 +354,11 @@ var M = {
     void:!!l.void,ref_id:l.refId||null}; },
   reqIn:function(r){ return {id:r.id,month:r.month,company:r.company,itemId:r.item_id,itemName:r.item_name,
     requestedQty:r.requested_qty,adjustedQty:r.adjusted_qty,comment:r.comment,
+    monthlyUse:(r.monthly_use==null?null:Number(r.monthly_use)),
     status:r.status||"req",orderedAt:r.ordered_at?Number(r.ordered_at):null,
     receivedAt:r.received_at?Number(r.received_at):null,receivedQty:r.received_qty||0}; },
-  reqOut:function(r){ return {id:r.id,month:r.month,company:r.company,item_id:r.itemId,item_name:r.itemName,
+  reqOut:function(r){ var o=M.reqOutBase(r); if(S.hasMU!==false) o.monthly_use=(r.monthlyUse==null?null:r.monthlyUse); return o; },
+  reqOutBase:function(r){ return {id:r.id,month:r.month,company:r.company,item_id:r.itemId,item_name:r.itemName,
     requested_qty:r.requestedQty,adjusted_qty:r.adjustedQty,comment:r.comment,
     status:r.status||"req",ordered_at:r.orderedAt||null,received_at:r.receivedAt||null,
     received_qty:r.receivedQty||0,
@@ -415,6 +423,7 @@ async function pull(){
     S.stocks=res[1].map(M.stockIn);
     S.logs=res[2].map(M.logIn);
     S.requests=res[3].map(M.reqIn);
+    if(res[3].length) S.hasMU=("monthly_use" in res[3][0]);
     S.emergencies=res[4].map(M.emgIn);
     S.stocktakes=res[5].map(M.stkIn);
     if(S.user){ var me=S.users.filter(function(x){return x.id===S.user.id;})[0]; if(me) S.user=me; }
@@ -430,7 +439,7 @@ async function push(fn,okMsg){
   setSync("busy");
   try{ var res=await fn(); if(res&&res.error) throw res.error;
     setSync("ok"); if(okMsg) toast(okMsg); return res||{ok:true}; }
-  catch(err){ console.error(err); setSync("err");
+  catch(err){ console.error(err); setSync("err"); LAST_PUSH_ERR=String(err.message||"");
     toast("저장 실패: "+(err.message||"서버 오류"),true); return null; }
 }
 
@@ -901,7 +910,6 @@ function bindDashRows(){
     S.wItem=el.dataset.id; S.wMode=el.dataset.mode; S.wQty=0; S.wMsg=null; S.wScroll=true; render(); }; });
 }
 function bindDash(){
-  bindDashRows();
   var ss=document.getElementById("stSearch");
   if(ss) ss.oninput=function(){ S.stSearch=ss.value;
     var co=curCo(), q=ss.value.toLowerCase();
@@ -909,6 +917,7 @@ function bindDash(){
     var b=document.getElementById("stBody"); if(b){ b.innerHTML=dashRowsHTML(list)||'<tr><td colspan="6" class="empty">검색 결과가 없습니다.</td></tr>'; bindDashRows(); } };
   var cl=document.getElementById("wClose"); if(cl) cl.onclick=function(){ S.wItem=null; S.wMsg=null; render(); };
   bindWForm();
+  bindDashRows();
   if(S.wScroll){ S.wScroll=false; var fp=document.getElementById("wFormPanel"); if(fp&&fp.scrollIntoView) fp.scrollIntoView({behavior:"smooth",block:"start"});
     var qi=document.getElementById("wQty"); if(qi) setTimeout(function(){ qi.focus(); },350); }
   var c=document.getElementById("csvStock");
@@ -1020,7 +1029,7 @@ function refreshWQty(){
   var q=document.getElementById("wQty"); if(q&&document.activeElement!==q) q.value=(S.wQty==null?"":S.wQty);
 }
 function bindWForm(){
-  document.querySelectorAll("[data-mode]").forEach(function(el){
+  document.querySelectorAll(".seg [data-mode]").forEach(function(el){
     el.onclick=function(){ S.wMode=el.dataset.mode; S.wQty=0; S.wMsg=null; render(); }; });
   var q=document.getElementById("wQty");
   if(q) q.oninput=function(){ S.wQty=(q.value===""?"":Math.max(0,parseInt(q.value,10)||0)); refreshWQty(); };
@@ -1274,7 +1283,7 @@ function newLineId(co,itemId,month){ var m=month||S.reqMonth, ls=itemLines(co,it
   var mx=Math.max.apply(null,ls.map(function(r){ return lineSeq(r.id); })); return m+"|"+co+"|"+itemId+"|#"+(mx+1); }
 function newLine(co,itemId,month){ var m=month||S.reqMonth;
   return {id:newLineId(co,itemId,m),month:m,company:co,itemId:itemId,itemName:(itemById(itemId)||{}).name||"",
-    requestedQty:null,adjustedQty:null,comment:"",status:"req",orderedAt:null,receivedAt:null,receivedQty:0,
+    requestedQty:null,adjustedQty:null,comment:"",monthlyUse:null,status:"req",orderedAt:null,receivedAt:null,receivedQty:0,
     updatedBy:S.user.id,updatedAt:Date.now()}; }
 function seqTag(r){ var n=lineSeq(r.id); return n>1?' <span class="tag t-grey" title="원 신청과 별도로 추가된 신청">추가 #'+n+'</span>':""; }
 /* ── 입고 취소: 잘못 반영한 입고를 되돌린다 (Lv.4 이상) ── */
@@ -1419,6 +1428,7 @@ function bindReqAddRows(){
     bindReqAddRows(); };
 }
 /* 최근 90일 불출 실적 기준 월 평균 소요량 */
+function monthlyUseOf(r){ return (r.monthlyUse!=null&&r.monthlyUse!=="")?r.monthlyUse:monthlyUse(r.company,r.itemId); }
 function monthlyUse(co,itemId){
   var d90=Date.now()-90*864e5, sum=0;
   S.logs.forEach(function(l){ if(l.type==="out"&&!l.void&&l.itemId===itemId&&l.company===co&&l.ts>=d90) sum+=l.qty; });
@@ -1511,7 +1521,7 @@ function viewReq(){
       .sort(function(a,b){ return (a.it.name||a.r.itemName).localeCompare(b.it.name||b.r.itemName,"ko")||lineSeq(a.r.id)-lineSeq(b.r.id); });
     var openCnt=rows.filter(function(x){ return x.r.status==="req"&&finalQty(x.r)>0; }).length;
     body='<div class="tablewrap"><table style="min-width:900px;"><thead><tr>'+
-      '<th>자재명 / 규격</th><th>단위</th><th class="hide-m">단가</th><th title="현재 보유 재고">재고</th><th title="최근 90일 불출 기준 월 평균">월 소요</th><th>신청</th><th>조정'+(lv(3)?"":" (관리자)")+'</th>'+
+      '<th>자재명 / 규격</th><th>단위</th><th class="hide-m">단가</th><th title="현재 보유 재고">재고</th><th title="직접 입력 · 비우면 최근 90일 불출 기준 월 평균 자동 적용">월 소요</th><th>신청</th><th>조정'+(lv(3)?"":" (관리자)")+'</th>'+
       '<th>금액</th><th>코멘트</th><th>상태</th><th>처리</th></tr></thead><tbody>'+
     (rows.map(function(x){
       var r=x.r, it=x.it, fq=finalQty(r), amt=fq*(it.price||0);
@@ -1526,9 +1536,11 @@ function viewReq(){
               ?'<div style="font-size:10px;color:var(--danger);font-weight:600;margin-top:2px;">이전 발주 미입고 '+nf(pd.ordered)+esc(it.unit||"")+' ('+esc(others.join(", "))+')</div>':""; })()+
           '</td>'+
         '<td>'+esc(it.unit||"")+'</td><td class="hide-m">'+won(it.price)+'</td>'+
-        (function(){ var stk=stockOf(co,r.itemId), mu=monthlyUse(co,r.itemId);
+        (function(){ var stk=stockOf(co,r.itemId), auto=monthlyUse(co,r.itemId), canMU=(edit||adm)&&S.hasMU!==false;
           return '<td style="text-align:right;">'+(stk?nf(stk.qty):'<span style="color:#c9d3db;" title="취급 품목 미등록">-</span>')+'</td>'+
-                 '<td style="text-align:right;'+(mu?"":"color:#c9d3db;")+'">'+(mu?nf(mu):"-")+'</td>'; })()+
+                 '<td>'+(canMU
+                   ?'<input type="number" min="0" class="rm" data-line="'+esc(r.id)+'" value="'+(r.monthlyUse==null?"":r.monthlyUse)+'" placeholder="'+(auto?nf(auto):"-")+'" title="비우면 최근 90일 실적 평균('+nf(auto)+')을 씁니다" style="width:72px;text-align:right;">'
+                   :'<span style="'+((r.monthlyUse!=null)?"font-weight:600;":"color:var(--text-mute);")+'">'+(monthlyUseOf(r)?nf(monthlyUseOf(r)):"-")+'</span>')+'</td>'; })()+
         '<td>'+(edit&&!lv(3)
           ?'<input type="number" min="0" class="rq" data-line="'+esc(r.id)+'" value="'+(r.requestedQty==null?"":r.requestedQty)+'" style="width:78px">'
           :nf(r.requestedQty||0))+'</td>'+
@@ -1595,7 +1607,7 @@ function bindReq(){
     var ex=lineById(lineId);
     return {id:ex.id,month:ex.month,company:ex.company,itemId:ex.itemId,itemName:ex.itemName,
       requestedQty:ex.requestedQty,adjustedQty:ex.adjustedQty,comment:ex.comment,
-      status:ex.status,orderedAt:ex.orderedAt,receivedAt:ex.receivedAt,receivedQty:ex.receivedQty,
+      monthlyUse:ex.monthlyUse,status:ex.status,orderedAt:ex.orderedAt,receivedAt:ex.receivedAt,receivedQty:ex.receivedQty,
       updatedBy:S.user.id,updatedAt:Date.now()};
   }
   /* 품목 기준: 수정 가능한 줄이 있으면 그 줄, 없으면(전부 발주됨) 추가 신청 줄 생성 */
@@ -1611,7 +1623,7 @@ function bindReq(){
     if(!prev.length) return;
     if(!confirm(prevM+" 신청 품목 "+prev.length+"건을 "+S.reqMonth+" 신청으로 불러옵니다.\n수량은 지난달 확정 수량으로 채워지며, 저장 전에 수정할 수 있습니다.")) return;
     var rows=prev.map(function(r){
-      var c=newLine(co,r.itemId); c.requestedQty=finalQty(r); return M.reqOut(c); });
+      var c=newLine(co,r.itemId); c.requestedQty=finalQty(r); c.monthlyUse=r.monthlyUse; return M.reqOut(c); });
     if(await push(function(){ return db.from("requests").upsert(rows); },prev.length+"건을 불러왔습니다.")){
       await pull(); S.reqView="list"; render(); }
   };
@@ -1630,12 +1642,13 @@ function bindReq(){
       document.querySelectorAll(".rq").forEach(function(i){ if(i.dataset.line) getLine(i.dataset.line).requestedQty=i.value===""?null:+i.value; });
       document.querySelectorAll(".ra").forEach(function(i){ if(i.dataset.line) getLine(i.dataset.line).adjustedQty=i.value===""?null:+i.value; });
       document.querySelectorAll(".rc").forEach(function(i){ if(i.dataset.line) getLine(i.dataset.line).comment=i.value; });
+      document.querySelectorAll(".rm").forEach(function(i){ if(i.dataset.line) getLine(i.dataset.line).monthlyUse=i.value===""?null:+i.value; });
     }
     var all=Object.keys(map).map(function(k){ return map[k]; });
     /* 수량을 비웠거나 0으로 만든 기존 신청(발주 전)은 삭제 */
     var dels=all.filter(function(r){ var ex=lineById(r.id);
       return ex && !(r.requestedQty>0) && r.adjustedQty==null && !r.comment && (ex.status==="req"||ex.status==="hold"); });
-    var picked=all.filter(function(r){ return dels.indexOf(r)<0 && (r.requestedQty>0||r.adjustedQty!=null||r.comment||lineById(r.id)); });
+    var picked=all.filter(function(r){ return dels.indexOf(r)<0 && (r.requestedQty>0||r.adjustedQty!=null||r.comment||r.monthlyUse!=null||lineById(r.id)); });
     /* 추가 신청 줄에는 사유 표기 */
     picked.forEach(function(r){ if(!lineById(r.id)&&lineSeq(r.id)>1&&!r.comment) r.comment="추가 신청"; });
     if(!picked.length&&!dels.length){ toast("입력된 수량이 없습니다.",true); return; }
@@ -1655,7 +1668,8 @@ function bindReq(){
     }
     var rows=picked.map(M.reqOut);
     var ok=true;
-    if(rows.length) ok=!!(await push(function(){ return db.from("requests").upsert(rows); }));
+    if(rows.length){ var up=await push(function(){ return db.from("requests").upsert(rows); }); ok=!!up;
+      if(!ok&&LAST_PUSH_ERR&&/monthly_use/.test(LAST_PUSH_ERR)) toast("월 소요수량 저장 칸이 없습니다. supabase_v10_monthly_use.sql 을 실행하세요.",true); }
     for(var k=0;k<dels.length&&ok;k++){
       ok=!!(await push((function(id){ return function(){ return db.from("requests").delete().eq("id",id); }; })(dels[k].id)));
     }
@@ -2797,7 +2811,7 @@ function exportRequestForm(){
   var body=rows.map(function(x,idx){
     var r=x.r, it=x.it;
     var st=stockOf(co,r.itemId);
-    var avg=monthlyUse(co,r.itemId);
+    var avg=monthlyUseOf(r);
     return '<tr>'+
       '<td style="'+td+'text-align:center;">'+(idx+1)+'</td>'+
       '<td style="'+td+'text-align:center;mso-number-format:\'@\';">'+esc(it.code||r.itemId)+'</td>'+
