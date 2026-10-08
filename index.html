@@ -226,6 +226,7 @@
   .pendrow b{font-weight:600;text-align:right;}
   .mono{font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
   ::placeholder{color:#9aa9b6;}
+  .ro{opacity:.45 !important;cursor:not-allowed !important;}
 </style>
 </head>
 <body>
@@ -245,8 +246,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v6.5";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-10-06 · 바로 등록 클릭 수정 · 월 소요수량 입력 · 모바일 당직자 표시";
+const APP_VERSION = "v6.6";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-10-08 · 조회 전용(관찰용) 계정";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -333,12 +334,28 @@ function canManageItems(){ return lv(4); }     /* 품목 마스터: Lv.4 부서 
 function canReceive(){ return lv(4); }         /* 발주 품목 입고 확인: Lv.4 부서 공구장 이상 */
 function canGrant(){ return lv(5); }           /* 계정 승인·권한 부여: Lv.5 시스템 관리자 */
 
+/* ── 조회 전용(관찰용) 계정: 자기 권한의 화면을 그대로 보되 저장·변경은 불가. 서버(트리거)도 함께 차단 ── */
+function isViewer(){ return !!(S.user&&S.user.readOnly); }
+/* 조회 전용 계정에서도 쓸 수 있는 조작: 검색·필터·월 선택·목록 전환·내보내기 */
+var VIEWER_OK=["#coSel","#stSearch","#wSearch","#wClose","#rMonth","#rCat","#rSearch","#rMore","[data-rv]","[data-rsc]",
+  "#hYear","#hCo","#hReq","#hSearch","[data-hcat]","#f_item","#f_type","#f_from","#f_to","#f_team","#f_reset",
+  "#iCat","#iSearch","#dMonth","#dSearch",".dPick",".dPickBtn",".dMon","#bMonth","#bCat","#bOpen","#bSearch",
+  "#clCat","#clSearch","#goColist","#csvUsers","#csvStock","#csvStk","#csvReq","#csvLog","#csvItems","#csvHist","#csvEmg","#csvBuy","#xlsForm"].join(",");
+function applyViewerLock(){
+  if(!isViewer()) return;
+  document.querySelectorAll("main button, main input, main select, main textarea").forEach(function(el){
+    if(el.disabled||el.dataset.ro) return;
+    try{ if(el.matches(VIEWER_OK)) return; }catch(e){}
+    el.disabled=true; el.dataset.ro="1"; el.title="조회 전용 계정 — 변경할 수 없습니다"; el.classList.add("ro");
+  });
+}
+
 /* ── DB 매핑 ──────────────────────────────────────────────── */
 var M = {
   userIn:function(r){ return {id:r.id,name:r.name,company:r.company,level:r.level,authUid:r.auth_uid||null,
-    reqLevel:r.req_level||1,status:r.status,roles:r.roles||"",createdAt:Number(r.created_at),lastLogin:Number(r.last_login)}; },
+    reqLevel:r.req_level||1,status:r.status,roles:r.roles||"",readOnly:!!r.read_only,createdAt:Number(r.created_at),lastLogin:Number(r.last_login)}; },
   userOut:function(u){ return {id:u.id,pass:"",name:u.name,company:u.company,level:u.level,auth_uid:u.authUid||null,
-    req_level:u.reqLevel||1,read_only:false,pw_changed:true,status:u.status,roles:u.roles||"",
+    req_level:u.reqLevel||1,read_only:!!u.readOnly,pw_changed:true,status:u.status,roles:u.roles||"",
     created_at:u.createdAt||0,last_login:u.lastLogin||0}; },
   itemIn:function(r){ return {id:r.id,name:r.name,unit:r.unit,step:r.step||1,
     code:r.code||"",spec:r.spec||"",price:Number(r.price)||0,category:r.category||"",discontinued:!!r.discontinued}; },
@@ -436,6 +453,7 @@ async function pull(){
 }
 
 async function push(fn,okMsg){
+  if(isViewer()){ toast("조회 전용 계정입니다. 변경할 수 없습니다.",true); return null; }
   setSync("busy");
   try{ var res=await fn(); if(res&&res.error) throw res.error;
     setSync("ok"); if(okMsg) toast(okMsg); return res||{ok:true}; }
@@ -484,7 +502,7 @@ function render(){
   S.pendingRender=false; S.pendingToast=false;
   var app=document.getElementById("app");
   if(!S.user){ app.innerHTML=viewAuth(); bindAuth(); return; }
-  app.innerHTML=viewShell(); bindShell();
+  app.innerHTML=viewShell(); bindShell(); applyViewerLock();
 }
 
 /* ── 로그인 / 가입 신청 ───────────────────────────────────── */
@@ -697,14 +715,15 @@ function viewShell(){
       '<span class="syncdot '+(S.sync==="busy"?"busy":S.sync==="err"?"err":"")+'" id="syncDot"><i></i></span>'+
       '<button class="btn btn-ghost btn-sm" id="btnSync" style="color:#fff;border-color:#3a5166;background:transparent;">새로고침</button>'+
       '<span class="lvbadge">LV.'+u.level+'</span>'+
-      (isProcurer()&&u.level<5?'<span class="lvbadge" style="background:#d1462f;color:#fff;">발주 담당</span>':"")+
+      (isViewer()?'<span class="lvbadge" style="background:#5f7080;color:#fff;">조회 전용</span>':"")+
+      (isProcurer()&&u.level<5&&!isViewer()?'<span class="lvbadge" style="background:#d1462f;color:#fff;">발주 담당</span>':"")+
       '<span class="u"><b>'+esc(u.name)+'</b> · '+esc(u.company)+'</span>'+
       '<button class="btn btn-ghost btn-sm" id="btnOut" style="color:#fff;border-color:#3a5166;background:transparent;">로그아웃</button>'+
     '</div></div>'+
     '<div class="tabs">'+tabs.map(function(t){
       return '<div class="tabbtn '+(S.tab===t.k?"active":"")+'" data-tab="'+t.k+'">'+t.l+
         (t.badge?'<span class="dot">'+t.badge+'</span>':"")+'</div>'; }).join("")+'</div>'+
-    '<main>'+viewTab()+'</main>'+
+    '<main>'+(isViewer()?'<div class="msg msg-warn" style="margin-bottom:14px;"><b>조회 전용 계정</b> — Lv.'+u.level+' 화면을 그대로 보지만 저장·변경은 되지 않습니다. 변경 버튼과 입력란은 비활성화되며, 검색·필터·내보내기는 사용할 수 있습니다.</div>':"")+viewTab()+'</main>'+
     '<div class="footer-note">부자재 관리 시스템 <b>'+APP_VERSION+'</b> · 마지막 동기화 '+(S.lastSync?fmt(S.lastSync,true):"-")+'</div>';
 }
 
@@ -2489,6 +2508,7 @@ function viewGrant(){
       '<td>'+lvChip(u.reqLevel||1)+' <span style="color:var(--text-mute);font-size:11.5px;">신청</span></td>'+
       '<td>'+fmt(u.createdAt,true)+'</td>'+
       '<td><select class="apLv" data-id="'+esc(u.id)+'" style="width:auto;display:inline-block;">'+lvOpts(u.reqLevel||1)+'</select> '+
+        '<label style="font-size:12px;white-space:nowrap;margin-right:4px;" title="화면은 그대로 보되 저장·변경은 불가 (시연·확인용)"><input type="checkbox" class="apRo" data-id="'+esc(u.id)+'" style="width:auto;vertical-align:middle;"> 조회 전용</label> '+
         '<button class="btn btn-primary btn-sm apOk" data-id="'+esc(u.id)+'">승인</button> '+
         '<button class="btn btn-danger btn-sm apNo" data-id="'+esc(u.id)+'">거절</button></td></tr>';
   }).join("");
@@ -2512,12 +2532,15 @@ function viewGrant(){
           '<td>'+(u.lastLogin?fmt(u.lastLogin,true):"미접속")+'</td>'+
           '<td>'+(u.status==="suspended"?'<span class="tag t-grey">정지</span>':'<span class="tag t-ok">사용</span>')+
             ((u.roles||"").indexOf("procure")>=0?' <span class="tag t-danger">발주 담당</span>':"")+
+            (u.readOnly?' <span class="tag t-grey" title="화면만 보고 변경은 불가">조회 전용</span>':"")+
             (u.authUid?"":' <span class="tag t-warn" title="첫 로그인 시 자동 전환됩니다">전환 전</span>')+'</td>'+
           '<td>'+(self?"":(u.status==="suspended"
             ?'<button class="btn btn-ghost btn-sm uRe" data-id="'+esc(u.id)+'">복구</button>'
             :'<button class="btn btn-ghost btn-sm uSp" data-id="'+esc(u.id)+'">정지</button>')+
             ' <button class="btn btn-ghost btn-sm uPw" data-id="'+esc(u.id)+'">PW초기화</button>'+
-            (u.level>=4&&u.level<5?((u.roles||"").indexOf("procure")>=0
+            (u.readOnly?' <button class="btn btn-ghost btn-sm uRoOff" data-id="'+esc(u.id)+'">조회 전용 해제</button>'
+                       :' <button class="btn btn-ghost btn-sm uRoOn" data-id="'+esc(u.id)+'" title="화면은 그대로 보되 저장·변경은 불가 (시연·확인용)">조회 전용 지정</button>')+
+            (u.level>=4&&u.level<5&&!u.readOnly?((u.roles||"").indexOf("procure")>=0
               ?' <button class="btn btn-ghost btn-sm uProcOff" data-id="'+esc(u.id)+'">담당 해제</button>'
               :' <button class="btn btn-navy btn-sm uProcOn" data-id="'+esc(u.id)+'">발주 담당 지정</button>'):""))+'</td></tr>';
       }).join("")||'<tr><td colspan="7" class="empty">해당 권한 사용자가 없습니다.</td></tr>')+
@@ -2539,7 +2562,8 @@ function viewGrant(){
       (S.users.filter(function(x){ return (x.roles||"").indexOf("procure")>=0; }).map(function(x){ return esc(x.name); }).join(", ")||'<span style="color:var(--text-mute);">미지정 (Lv.5만 가능)</span>')+
       '</div></div>'+
   '</div>'+
-  '<div class="msg msg-info"><b>발주 담당자</b>는 Lv.4 중 1명을 지정합니다. 발주 처리(부자재 신청·구매 취합)와 부서 공구실 부자재 신청 수정은 발주 담당자와 Lv.5만 가능하며, 다른 부서 공구장은 조회만 할 수 있습니다. 불출·입고·실사·납품 배분 입고 반영은 기존대로 Lv.4 이상 모두 가능합니다.</div>'+
+  '<div class="msg msg-info"><b>발주 담당자</b>는 Lv.4 중 1명을 지정합니다. 발주 처리(부자재 신청·구매 취합)와 부서 공구실 부자재 신청 수정은 발주 담당자와 Lv.5만 가능하며, 다른 부서 공구장은 조회만 할 수 있습니다. 불출·입고·실사·납품 배분 입고 반영은 기존대로 Lv.4 이상 모두 가능합니다.<br>'+
+    '<b>조회 전용</b>으로 지정한 계정은 해당 권한의 화면을 그대로 보되 어떤 저장·변경도 할 수 없습니다(시연·확인용). Lv.5 + 조회 전용으로 승인하면 시스템 관리자 화면을 그대로 관찰할 수 있습니다.</div>'+
   '<div class="panel"><div class="panel-head"><div><h2>권한 부여 대기</h2>'+
     '<div class="sub">신청한 권한을 확인하고 최종 권한을 지정해 승인하세요. <b>소속을 잘못 적은 경우 여기서 바로잡은 뒤 승인</b>하면 됩니다</div></div>'+
     (canExport()?'<button class="btn btn-ghost btn-sm" id="csvUsers">Excel 내보내기</button>':"")+'</div>'+
@@ -2557,9 +2581,18 @@ function bindGrant(){
     var u=U(el.dataset.id);
     var sel=document.querySelector('.apLv[data-id="'+CSS.escape(el.dataset.id)+'"]');
     var coSel=document.querySelector('.apCo[data-id="'+CSS.escape(el.dataset.id)+'"]');
-    u.status="approved"; u.level=+sel.value;
+    var roChk=document.querySelector('.apRo[data-id="'+CSS.escape(el.dataset.id)+'"]');
+    u.status="approved"; u.level=+sel.value; u.readOnly=!!(roChk&&roChk.checked);
     if(coSel&&coSel.value) u.company=coSel.value;
-    saveU(u,u.name+" 계정을 "+u.company+" · Lv."+u.level+"로 승인했습니다."); }; });
+    saveU(u,u.name+" 계정을 "+u.company+" · Lv."+u.level+(u.readOnly?" (조회 전용)":"")+"로 승인했습니다."); }; });
+  document.querySelectorAll(".uRoOn").forEach(function(el){ el.onclick=function(){
+    var u=U(el.dataset.id);
+    if(!confirm(u.name+"을(를) 조회 전용 계정으로 지정합니다.\nLv."+u.level+" 화면을 그대로 보지만 저장·변경은 할 수 없게 됩니다.")) return;
+    u.readOnly=true; saveU(u,u.name+" 계정이 조회 전용으로 지정되었습니다."); }; });
+  document.querySelectorAll(".uRoOff").forEach(function(el){ el.onclick=function(){
+    var u=U(el.dataset.id);
+    if(!confirm(u.name+"의 조회 전용을 해제합니다.\n이 계정은 Lv."+u.level+" 권한으로 실제 변경이 가능해집니다.")) return;
+    u.readOnly=false; saveU(u,u.name+" 계정의 조회 전용이 해제되었습니다."); }; });
   document.querySelectorAll(".chCo").forEach(function(el){ el.onchange=function(){
     var u=U(el.dataset.id); var from=u.company; u.company=el.value;
     if(!confirm(u.name+"의 소속을 "+from+" → "+u.company+" 로 변경합니다.\n이 사용자가 앞으로 보는 재고·신청 화면이 바뀝니다. 계속할까요?")){ el.value=from; return; }
@@ -2604,7 +2637,7 @@ function bindGrant(){
       if(r.error) toast("초기화 실패: "+r.error.message,true); else toast(u.name+" 비밀번호가 초기화되었습니다."); }); }; });
   var c=document.getElementById("csvUsers");
   if(c) c.onclick=function(){ exportCSV("사용자권한",["아이디","이름","소속","권한","권한명","신청권한","상태","최근접속"],
-    S.users.map(function(u){ return [u.id,u.name,u.company,"Lv."+u.level,LEVEL_NAME[u.level],
+    S.users.map(function(u){ return [u.id,u.name,u.company,"Lv."+u.level,LEVEL_NAME[u.level]+(u.readOnly?" (조회 전용)":""),
       "Lv."+(u.reqLevel||1),u.status,u.lastLogin?fmt(u.lastLogin):"미접속"]; })); };
 }
 
@@ -2728,10 +2761,12 @@ function viewMe(){
       '<div class="field"><label>이름</label><input type="text" value="'+esc(u.name)+'" disabled></div>'+
       '<div class="field"><label>소속</label><input type="text" value="'+esc(u.company)+'" disabled></div>'+
       '<div class="field"><label>권한</label><input type="text" value="Lv.'+u.level+' · '+esc(LEVEL_NAME[u.level])+'" disabled></div></div>'+
-      '<div style="border-top:1px solid var(--steel-line);padding-top:14px;max-width:420px;">'+
+      (isViewer()
+        ?'<div class="msg msg-info" style="margin:0;">조회 전용 계정은 비밀번호를 변경할 수 없습니다. 필요하면 시스템 관리자에게 초기화를 요청하세요.</div>'
+        :'<div style="border-top:1px solid var(--steel-line);padding-top:14px;max-width:420px;">'+
         '<div class="field"><label>새 비밀번호</label><input type="password" id="pw1" placeholder="6자 이상, 영문·숫자 권장"></div>'+
         '<div class="field"><label>새 비밀번호 확인</label><input type="password" id="pw2"></div>'+
-        '<button class="btn btn-primary" id="pwSave">비밀번호 변경</button></div></div></div>'+
+        '<button class="btn btn-primary" id="pwSave">비밀번호 변경</button></div>')+'</div></div>'+
   '<div class="panel"><div class="panel-head"><div><h2>내 권한 범위</h2></div></div>'+
     '<div class="panel-body"><div class="tablewrap"><table><thead><tr><th>기능</th><th>권한</th></tr></thead><tbody>'+
     [["부자재 불출 (차감)",true],
@@ -2758,17 +2793,17 @@ function viewMe(){
      ["Excel 내보내기",canExport()],
      ["품목 마스터 (신규 등록·수정·삭제)",canManageItems()],
      ["권한 부여",canGrant()]].map(function(r){
-       return '<tr><td class="kr">'+r[0]+'</td><td>'+(r[1]
+       return '<tr><td class="kr">'+r[0]+'</td><td>'+(isViewer()?(r[1]?'<span class="tag t-grey">조회만</span>':'<span class="tag t-grey">불가</span>'):r[1]
          ?'<span class="tag t-ok">가능</span>':'<span class="tag t-grey">불가</span>')+'</td></tr>'; }).join("")+
     '</tbody></table></div></div></div>'+
-  (canGrant()?'<div class="panel"><div class="panel-head"><div><h2>데이터 백업</h2>'+
+  (canGrant()&&!isViewer()?'<div class="panel"><div class="panel-head"><div><h2>데이터 백업</h2>'+
     '<div class="sub">서버에 보관되지만, 월 1회 파일로도 내려받아 두면 안전합니다.</div></div></div>'+
     '<div class="panel-body"><button class="btn btn-navy" id="bkup">전체 데이터 백업 (JSON)</button></div></div>':"");
 }
 
 function bindMe(){
   var b=document.getElementById("pwSave");
-  if(b) b.onclick=async function(){
+  if(b&&!isViewer()) b.onclick=async function(){
     var a=document.getElementById("pw1").value, c=document.getElementById("pw2").value;
     if(a.length<6){ alert("6자 이상 입력하세요."); return; }
     if(a!==c){ alert("두 비밀번호가 일치하지 않습니다."); return; }
@@ -2857,6 +2892,10 @@ function exportCSV(name,head,rows){
 (async function main(){
   document.getElementById("app").innerHTML=
     '<div style="padding:70px;text-align:center;color:#5f7080;font-size:13px;">서버에서 불러오는 중…</div>';
+  /* 조회 전용 계정: 검색 등으로 화면 일부가 다시 그려져도 변경 버튼이 되살아나지 않게 감시 */
+  try{ new MutationObserver(function(){ if(!isViewer()||S.lockTick) return; S.lockTick=true;
+    requestAnimationFrame(function(){ S.lockTick=false; applyViewerLock(); }); })
+    .observe(document.getElementById("app"),{childList:true,subtree:true}); }catch(e){}
   checkVersion();
   /* 로그인 세션이 있으면 프로필을 찾아 자동 로그인 */
   var prof=null;
