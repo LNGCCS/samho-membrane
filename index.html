@@ -246,8 +246,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v6.6";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-10-08 · 조회 전용(관찰용) 계정";
+const APP_VERSION = "v6.7";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-10-19 · 서버 전송량 절감(증분 동기화) · 문구 정리";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const COMPANIES = [DEPT].concat(VENDORS);
@@ -401,7 +401,7 @@ async function currentProfile(){
   if(r.error||!r.data||!r.data.length) return null;
   return M.userIn(r.data[0]);
 }
-async function signOutAll(){ try{ await db.auth.signOut(); }catch(e){} ls("bz_session",null); }
+async function signOutAll(){ try{ await db.auth.signOut(); }catch(e){} ls("bz_session",null); SYNC.base=false; }
 function setSync(v){ S.sync=v; var el=document.getElementById("syncDot");
   if(el) el.className="syncdot"+(v==="busy"?" busy":v==="err"?" err":""); }
 
@@ -420,29 +420,118 @@ async function fetchAll(table, orderCol, asc, cap){
   return cap? out.slice(0,cap) : out;
 }
 async function pullItems(){
-  /* 품목 마스터는 수천 건이라 20초 폴링에서 제외하고 필요 시에만 새로 받습니다 */
+  /* 품목 마스터는 수천 건이라 주기 동기화에서 제외하고 필요 시에만 새로 받습니다 */
   try{ S.items=(await fetchAll("items","name")).map(M.itemIn); return true; }
   catch(e){ console.error(e); LAST_ERR=e; return false; }
 }
-async function pull(){
+/* ── 동기화 ──────────────────────────────────────────────────
+   서버 전송량(무료 요금제 월 5GB)을 아끼기 위해, 처음 한 번만 전체를 받고(pull(true))
+   그 뒤에는 "마지막으로 받은 시점 이후 바뀐 행"만 받습니다(pull()).
+   · 서버에 pull_delta 함수(v12 SQL)가 있으면 요청 1번으로 끝나고,
+   · 없으면 테이블별 조건 조회로 대신합니다(전송량은 조금 더 듦).
+   삭제된 행은 서버 행 수와 비교해 감지하고, 30분마다 한 번은 전체를 다시 받습니다.
+   ──────────────────────────────────────────────────────────── */
+var SYNC={base:false, rpc:null, n:0, logTs:0, voidAt:0, reqUpd:0, stkTs:0, stockUpd:0, userUpd:0, emgUpd:0, hasUpd:{}};
+function maxOf(rows,key,cur){ var m=cur||0; (rows||[]).forEach(function(r){ var v=Number(r[key]); if(v>m) m=v; }); return m; }
+function mergeById(arr,rows,mapper){
+  if(!rows||!rows.length) return arr;
+  var idx={}; arr.forEach(function(x,i){ idx[x.id]=i; });
+  rows.forEach(function(r){ var o=mapper(r); if(idx[o.id]!=null) arr[idx[o.id]]=o; else { idx[o.id]=arr.length; arr.push(o); } });
+  return arr;
+}
+function applySettings(rows){ if(rows&&rows.length){ S.settings={}; rows.forEach(function(r){ S.settings[r.key]=r.value; }); } }
+function noteMarkers(d){
+  SYNC.logTs=maxOf(d.logs,"ts",SYNC.logTs); SYNC.voidAt=maxOf(d.logs,"void_at",maxOf(d.voids,"void_at",SYNC.voidAt));
+  SYNC.reqUpd=maxOf(d.requests,"updated_at",SYNC.reqUpd); SYNC.stkTs=maxOf(d.stocktakes,"ts",SYNC.stkTs);
+  SYNC.stockUpd=maxOf(d.stocks,"updated_at",SYNC.stockUpd); SYNC.userUpd=maxOf(d.users,"updated_at",SYNC.userUpd);
+  SYNC.emgUpd=maxOf(d.emergencies,"updated_at",SYNC.emgUpd);
+}
+async function pullFull(){
+  var res = await Promise.all([
+    fetchAll("users","id"),
+    fetchAll("stocks","id"),
+    fetchAll("logs","ts",false,5000),
+    fetchAll("requests","id"),
+    fetchAll("emergencies","ts",false),
+    fetchAll("stocktakes","ts",false)
+  ]);
+  try{ var st=await db.from("settings").select("*"); if(!st.error) applySettings(st.data||[]); }catch(e){}
+  S.users=res[0].map(M.userIn);
+  S.stocks=res[1].map(M.stockIn);
+  S.logs=res[2].map(M.logIn);
+  S.requests=res[3].map(M.reqIn);
+  if(res[3].length) S.hasMU=("monthly_use" in res[3][0]);
+  S.emergencies=res[4].map(M.emgIn);
+  S.stocktakes=res[5].map(M.stkIn);
+  SYNC.hasUpd={ stocks:res[1].length?("updated_at" in res[1][0]):false, users:res[0].length?("updated_at" in res[0][0]):false,
+    emergencies:res[4].length?("updated_at" in res[4][0]):null };
+  SYNC.logTs=0; SYNC.voidAt=0; SYNC.reqUpd=0; SYNC.stkTs=0; SYNC.stockUpd=0; SYNC.userUpd=0; SYNC.emgUpd=0;
+  noteMarkers({logs:res[2],requests:res[3],stocktakes:res[5],stocks:res[1],users:res[0],emergencies:res[4]});
+  SYNC.base=true; SYNC.n=0;
+}
+async function refetch(table){
+  if(table==="requests"){ var r=await fetchAll("requests","id"); S.requests=r.map(M.reqIn); SYNC.reqUpd=maxOf(r,"updated_at",0); }
+  else if(table==="stocks"){ var s=await fetchAll("stocks","id"); S.stocks=s.map(M.stockIn); SYNC.stockUpd=maxOf(s,"updated_at",0); }
+  else if(table==="users"){ var u=await fetchAll("users","id"); S.users=u.map(M.userIn); SYNC.userUpd=maxOf(u,"updated_at",0); }
+  else if(table==="emergencies"){ var e=await fetchAll("emergencies","ts",false); S.emergencies=e.map(M.emgIn); SYNC.emgUpd=maxOf(e,"updated_at",0); }
+}
+async function pullInc(){
+  var d=null;
+  if(SYNC.rpc!==false){
+    var r=await db.rpc("pull_delta",{p_log_ts:SYNC.logTs,p_void_at:SYNC.voidAt,p_req_upd:SYNC.reqUpd,p_stk_ts:SYNC.stkTs,
+      p_stock_upd:SYNC.stockUpd,p_user_upd:SYNC.userUpd,p_emg_upd:SYNC.emgUpd});
+    if(r.error){
+      if(/pull_delta|PGRST202|42883|schema cache/i.test((r.error.message||"")+" "+(r.error.code||""))){ SYNC.rpc=false; }
+      else throw r.error;
+    } else { SYNC.rpc=true; d=r.data||{}; }
+  }
+  if(!d){
+    /* 서버 함수가 없을 때: 테이블별 조건 조회 (updated_at 칸이 없는 표는 전체) */
+    var qs=[
+      db.from("logs").select("*").gt("ts",SYNC.logTs).order("ts",{ascending:false}).limit(1000),
+      db.from("logs").select("*").gt("void_at",SYNC.voidAt).limit(500),
+      db.from("requests").select("*").gt("updated_at",SYNC.reqUpd).limit(2000),
+      db.from("stocktakes").select("*").gt("ts",SYNC.stkTs).limit(200),
+      db.from("settings").select("*"),
+      SYNC.hasUpd.stocks? db.from("stocks").select("*").gt("updated_at",SYNC.stockUpd).limit(2000) : fetchAll("stocks","id").then(function(x){ return {data:x,full:true}; }),
+      SYNC.hasUpd.users? db.from("users").select("*").gt("updated_at",SYNC.userUpd) : fetchAll("users","id").then(function(x){ return {data:x,full:true}; }),
+      SYNC.hasUpd.emergencies? db.from("emergencies").select("*").gt("updated_at",SYNC.emgUpd) : fetchAll("emergencies","ts",false).then(function(x){ return {data:x,full:true}; })
+    ];
+    var rs=await Promise.all(qs);
+    rs.forEach(function(x){ if(x&&x.error) throw x.error; });
+    d={logs:rs[0].data||[],voids:rs[1].data||[],requests:rs[2].data||[],stocktakes:rs[3].data||[],settings:rs[4].data||[],
+       stocks:rs[5].data||[],users:rs[6].data||[],emergencies:rs[7].data||[],full:{stocks:!!rs[5].full,users:!!rs[6].full,emergencies:!!rs[7].full}};
+    if(SYNC.n%6===0){ /* 3분마다 삭제 감지 (행 수 비교) */
+      var cs=await Promise.all([db.from("requests").select("id",{count:"exact",head:true}),db.from("stocks").select("id",{count:"exact",head:true}),db.from("users").select("id",{count:"exact",head:true})]);
+      d.counts={requests:cs[0].count,stocks:cs[1].count,users:cs[2].count};
+    }
+  }
+  var full=d.full||{};
+  if(full.stocks) S.stocks=(d.stocks||[]).map(M.stockIn); else mergeById(S.stocks,d.stocks,M.stockIn);
+  if(full.users) S.users=(d.users||[]).map(M.userIn); else mergeById(S.users,d.users,M.userIn);
+  if(full.emergencies) S.emergencies=(d.emergencies||[]).map(M.emgIn); else mergeById(S.emergencies,d.emergencies,M.emgIn);
+  mergeById(S.requests,d.requests,M.reqIn);
+  mergeById(S.stocktakes,d.stocktakes,M.stkIn);
+  if((d.logs&&d.logs.length)||(d.voids&&d.voids.length)){
+    mergeById(S.logs,d.voids,M.logIn); mergeById(S.logs,d.logs,M.logIn);
+    S.logs.sort(function(a,b){ return b.ts-a.ts; }); if(S.logs.length>5000) S.logs.length=5000;
+  }
+  applySettings(d.settings);
+  noteMarkers(d);
+  if(d.counts){ /* 서버 행 수와 다르면(삭제됨) 그 표만 다시 받기 */
+    var c=d.counts, jobs=[];
+    if(c.requests!=null&&c.requests!==S.requests.length) jobs.push(refetch("requests"));
+    if(c.stocks!=null&&c.stocks!==S.stocks.length) jobs.push(refetch("stocks"));
+    if(c.users!=null&&c.users!==S.users.length) jobs.push(refetch("users"));
+    if(c.emergencies!=null&&c.emergencies!==S.emergencies.length) jobs.push(refetch("emergencies"));
+    if(jobs.length) await Promise.all(jobs);
+  }
+  SYNC.n++;
+}
+async function pull(full){
   setSync("busy");
   try{
-    var res = await Promise.all([
-      fetchAll("users","id"),
-      fetchAll("stocks","id"),
-      fetchAll("logs","ts",false,5000),
-      fetchAll("requests","id"),
-      fetchAll("emergencies","ts",false),
-      fetchAll("stocktakes","ts",false)
-    ]);
-    try{ var st=await db.from("settings").select("*"); if(!st.error){ S.settings={}; (st.data||[]).forEach(function(r){ S.settings[r.key]=r.value; }); } }catch(e){}
-    S.users=res[0].map(M.userIn);
-    S.stocks=res[1].map(M.stockIn);
-    S.logs=res[2].map(M.logIn);
-    S.requests=res[3].map(M.reqIn);
-    if(res[3].length) S.hasMU=("monthly_use" in res[3][0]);
-    S.emergencies=res[4].map(M.emgIn);
-    S.stocktakes=res[5].map(M.stkIn);
+    if(full||!SYNC.base||SYNC.n>=60) await pullFull(); else await pullInc();
     if(S.user){ var me=S.users.filter(function(x){return x.id===S.user.id;})[0]; if(me) S.user=me; }
     S.lastSync=Date.now(); setSync("ok"); LAST_ERR=null; return true;
   }catch(err){
@@ -751,7 +840,7 @@ function companyBar(){
 
 function bindShell(){
   document.getElementById("btnOut").onclick=async function(){ await signOutAll(); S.user=null; stopPoll(); render(); };
-  document.getElementById("btnSync").onclick=async function(){ var y=window.scrollY; await pullItems(); await pull(); lastSig=dataSig(); render(); window.scrollTo(0,y); toast("최신 데이터를 불러왔습니다."); };
+  document.getElementById("btnSync").onclick=async function(){ var y=window.scrollY; await pullItems(); await pull(true); lastSig=dataSig(); render(); window.scrollTo(0,y); toast("최신 데이터를 불러왔습니다."); };
   document.querySelectorAll("[data-tab]").forEach(function(el){
     el.onclick=async function(){ S.tab=el.dataset.tab; S.msg={}; S.wMsg=null; await pull(); render(); }; });
   var cs=document.getElementById("coSel");
@@ -825,7 +914,7 @@ function startPoll(){ stopPoll(); pollTimer=setInterval(async function(){
     if(!S.pendingToast){ S.pendingToast=true; toast("다른 사용자가 등록한 새 데이터가 있습니다. 입력을 마치면 자동 반영됩니다."); }
     return; }
   var y=window.scrollY; render(); window.scrollTo(0,y);  /* 보던 위치 유지 */
-},20000); }
+},30000); }
 document.addEventListener("visibilitychange",function(){ if(!document.hidden) checkVersion(); });
 function stopPoll(){ if(pollTimer) clearInterval(pollTimer); pollTimer=null; }
 
@@ -1009,7 +1098,7 @@ function wMetaHTML(co,it,sel){
     h+='<br>조정 차이 <b style="color:'+(d<0?"var(--danger)":d>0?"var(--info)":"var(--ok)")+'">'+(d>0?"+":"")+nf(d)+esc(it.unit)+'</b> (실물 − 시스템). 확정하면 보유량이 실물 수량으로 바뀌고 이력이 남습니다.'; }
   return h;
 }
-/* 수량 입력·선택 폼 (재고 현황과 불출·입고 탭이 공용) */
+/* 수량 입력·선택 폼 (재고 현황의 바로 등록) */
 function wFormHTML(co,it,sel){
   var isAdj=S.wMode==="adj";
   return '<div class="field"><label>'+(isAdj?"실물 수량 입력":"수량 입력")+' — '+esc(it.name)+(it.spec?' <span style="font-weight:400;color:var(--text-mute);">'+esc(it.spec)+'</span>':"")+'</label>'+
@@ -1596,8 +1685,8 @@ function viewReq(){
       (reqEditable(null)&&rows.length?'<button class="btn btn-primary" id="rSave">변경 사항 저장</button>':"")+
       (canOrder()&&canEditReqCo()&&openCnt?'<button class="btn btn-navy" id="rOrderAll">미발주 '+openCnt+'건 일괄 발주 처리</button>':"")+
     '</div>'+
-    (lv(3)?'<div class="hint" style="margin-top:8px;">발주 = 전산 구매 신청 완료 표시(Lv.3 이상) · 입고 = 실물 도착 확인(Lv.4 부서 공구장 이상, 부분 입고 시 수량 입력). 입고된 실물은 업체가 <b>불출·입고</b> 탭에서 재고로 등록합니다.</div>'
-          :'<div class="hint" style="margin-top:8px;">[발주완료] 품목은 이미 구매 진행 중이니 중복 신청하지 마세요. 입고 확인은 부서 공구장이 처리하며, 도착한 실물은 <b>불출·입고</b> 탭에서 재고로 등록하면 됩니다.</div>');
+    (lv(3)?'<div class="hint" style="margin-top:8px;">발주 = 전산 구매 신청 완료 표시(Lv.3 이상) · 입고 = 실물 도착 확인(Lv.4 부서 공구장 이상, 부분 입고 시 수량 입력). 입고된 실물은 업체가 <b>재고 현황</b>의 [입고]로 재고에 등록합니다.</div>'
+          :'<div class="hint" style="margin-top:8px;">[발주완료] 품목은 이미 구매 진행 중이니 중복 신청하지 마세요. 입고 확인은 부서 공구장이 처리하며, 도착한 실물은 <b>재고 현황</b>의 [입고]로 재고에 등록하면 됩니다.</div>');
   }
   return head+body+'</div></div>';
 }
@@ -1733,7 +1822,7 @@ function bindReq(){
     var it=itemById(r.itemId)||{};
     if(!confirm((it.name||r.itemName)+" 신청을 삭제합니다. 계속할까요?")) return;
     if(await push(function(){ return db.from("requests").delete().eq("id",r.id); },"삭제되었습니다.")){
-      await pull(); render(); }
+      await pull(true); render(); }
   }; });
   var oa=document.getElementById("rOrderAll");
   if(oa) oa.onclick=async function(){
@@ -1863,7 +1952,7 @@ function viewDuty(){
       '<button class="btn btn-primary" id="dutySave">저장</button>'+
       '<button class="btn btn-ghost" id="dutyMe">나를 당직자로</button>'+
       '<button class="btn btn-ghost" id="dutyClear">표시 지우기</button></div>'+
-    '<div class="hint" style="margin-top:10px;">임시 교체 시 이름만 바꾸고 저장하면 20초 안에 모든 화면에 반영됩니다.</div>'+
+    '<div class="hint" style="margin-top:10px;">임시 교체 시 이름만 바꾸고 저장하면 30초 안에 모든 화면에 반영됩니다.</div>'+
   '</div></div>';
 }
 function bindDuty(){
@@ -2078,7 +2167,7 @@ function viewDlv(){
       '</tbody></table></div>'+
       (canReceive()&&totalRem>0?'<div class="panel-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'+
         '<button class="btn btn-primary" id="dApply">입고 반영 (배분 확정)</button>'+
-        '<span class="hint" style="margin:0;">반영하면 각 업체의 미입고가 줄고, 전량 입고된 업체는 입고완료로 바뀝니다. <b>부서 공구실 물량은 보유 재고에도 즉시 반영</b>되며, 협력업체 물량은 각 업체가 불출·입고 탭에서 등록합니다.</span></div>':"")+
+        '<span class="hint" style="margin:0;">반영하면 각 업체의 미입고가 줄고, 전량 입고된 업체는 입고완료로 바뀝니다. <b>부서 공구실 물량은 보유 재고에도 즉시 반영</b>되며, 협력업체 물량은 각 업체가 재고 현황의 [입고]로 등록합니다.</span></div>':"")+
       '</div>';
   }
   return (S.msg.dlv?'<div class="msg msg-ok">'+esc(S.msg.dlv)+'</div>':"")+
@@ -2127,7 +2216,7 @@ function bindDlv(){
     var summary=lines.map(function(z){ var it=itemById(z.r.itemId)||{}; return z.r.company+" "+nf(z.x.qty)+(it.unit||""); }).join(" · ");
     var roomQty=lines.filter(function(z){ return z.r.company===DEPT_ROOM; }).reduce(function(a,z){ return a+z.x.qty; },0);
     if(!confirm("다음과 같이 배분해 입고 반영합니다.\n\n"+summary+
-        (roomQty?"\n\n※ 부서 공구실 "+nf(roomQty)+"은(는) 보유 재고에도 즉시 반영됩니다.\n   (협력업체 물량은 각 업체가 불출·입고 탭에서 등록)":"")+
+        (roomQty?"\n\n※ 부서 공구실 "+nf(roomQty)+"은(는) 보유 재고에도 즉시 반영됩니다.\n   (협력업체 물량은 각 업체가 재고 현황의 [입고]로 등록)":"")+
         (over.length?"\n\n※ 미입고 수량을 초과한 업체가 "+over.length+"곳 있습니다 (초과 납품)":"")+"\n\n계속할까요?")) return;
     var now=Date.now();
     var rows=lines.map(function(z){ var r=Object.assign({},z.r);
@@ -2157,7 +2246,7 @@ function bindDlv(){
     toast("입고 반영 완료"+(stocked?" · 부서 공구실 재고 +"+nf(stocked):""));
     S.msg.dlv="입고 반영: "+summary+
       (stocked?"  |  부서 공구실 보유 재고에 "+nf(stocked)+" 반영됨":"")+
-      (stockFail.length?"  |  재고 반영 실패: "+stockFail.join(", ")+" (불출·입고 탭에서 직접 등록하세요)":"");
+      (stockFail.length?"  |  재고 반영 실패: "+stockFail.join(", ")+" (재고 현황의 [입고]로 직접 등록하세요)":"");
     await pull(); render();
   };
 }
@@ -2443,7 +2532,7 @@ function bindColist(){
     if(!coGuard()) return;
     if(!confirm("이 업체의 취급 품목에서 제외합니다. 기존 로그는 유지됩니다.")) return;
     if(await push(function(){ return db.from("stocks").delete().eq("id",stockKey(co,el.dataset.id)); },"제외되었습니다.")){
-      await pull(); render(); }
+      await pull(true); render(); }
   }; });
 }
 function bindClNew(){
@@ -2600,7 +2689,7 @@ function bindGrant(){
   document.querySelectorAll(".apNo").forEach(function(el){ el.onclick=async function(){
     if(!confirm("가입 신청을 거절하고 삭제합니다.")) return;
     if(await push(function(){ return db.from("users").delete().eq("id",el.dataset.id); },"삭제되었습니다.")){
-      await pull(); render(); } }; });
+      await pull(true); render(); } }; });
   document.querySelectorAll(".chLv").forEach(function(el){ el.onchange=function(){
     var u=U(el.dataset.id); u.level=+el.value; saveU(u,u.name+" 권한을 Lv."+u.level+"로 변경했습니다."); }; });
   document.querySelectorAll(".uSp").forEach(function(el){ el.onclick=function(){
@@ -2614,7 +2703,7 @@ function bindGrant(){
     var x=strayCompanies().filter(function(z){ return z.company===from; })[0]||{};
     if(!confirm("'"+from+"' 소속으로 저장된 데이터를 '"+to+"'(으)로 이관합니다.\n\n신청 "+(x.requests||0)+"건 · 취급 품목 "+(x.stocks||0)+"건 · 로그 "+(x.logs||0)+"건 · 긴급 "+(x.emergencies||0)+"건 · 실사 "+(x.stocktakes||0)+"건\n\n되돌리기 어려우니 대상 업체를 다시 확인하세요. 계속할까요?")) return;
     el.disabled=true; el.textContent="이관 중…";
-    if(await migrateCompany(from,to)){ await pull(); render(); } else { el.disabled=false; el.textContent="이관"; }
+    if(await migrateCompany(from,to)){ await pull(true); render(); } else { el.disabled=false; el.textContent="이관"; }
   }; });
   document.querySelectorAll(".uProcOn").forEach(function(el){ el.onclick=async function(){
     var u=U(el.dataset.id);
@@ -2717,7 +2806,7 @@ function bindItemRowBtns(){
     if(!confirm("품목을 마스터에서 삭제합니다."+(used?"\n\n현재 "+used+"개 업체가 취급 중이며 해당 재고 정보도 삭제됩니다.":"")+"\n기존 로그·신청 이력은 유지됩니다.")) return;
     await push(function(){ return db.from("stocks").delete().eq("item_id",el.dataset.id); });
     if(await push(function(){ return db.from("items").delete().eq("id",el.dataset.id); },"삭제되었습니다.")){
-      await pullItems(); await pull(); render(); } }; });
+      await pullItems(); await pull(true); render(); } }; });
 }
 function bindItems(){
   var cs=document.getElementById("iCat");
