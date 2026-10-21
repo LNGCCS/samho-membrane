@@ -227,6 +227,22 @@
   .mono{font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
   ::placeholder{color:#9aa9b6;}
   .ro{opacity:.45 !important;cursor:not-allowed !important;}
+  .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;}
+  @media(max-width:900px){.grid5{grid-template-columns:repeat(3,1fr);}}
+  @media(max-width:600px){.grid5{grid-template-columns:1fr 1fr;}}
+  .qchip.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+  @media(max-width:640px){   /* 휴대폰: 가스 디텍터 사용 중·확인 대기 표를 카드형으로 (반납 버튼이 항상 보이게) */
+    table.gcards,table.gcards tbody{display:block;width:100%;min-width:0;}
+    .tablewrap table.gcards td:first-child{position:static;box-shadow:none;background:transparent;}
+    table.gcards thead{display:none;}
+    table.gcards tr{display:block;padding:10px 12px;border-bottom:1px solid #eef1f4;}
+    table.gcards tr:hover td{background:transparent;}
+    table.gcards td{display:inline-block;border:0;padding:3px 12px 3px 0;vertical-align:top;}
+    table.gcards td[data-l]:before{content:attr(data-l);display:block;font-size:10px;color:var(--text-mute);font-family:inherit;}
+    table.gcards td.acts{display:block;padding:8px 0 2px;white-space:normal !important;}
+    table.gcards td.acts .btn{margin:0 6px 6px 0;}
+    table.gcards td.empty{display:block;}
+  }
 </style>
 </head>
 <body>
@@ -246,11 +262,13 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v6.7";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-10-19 · 서버 전송량 절감(증분 동기화) · 문구 정리";
+const APP_VERSION = "v6.8";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-10-21 · 가스 디텍터 순환 관리 탭";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
-const COMPANIES = [DEPT].concat(VENDORS);
+const GAS_ONLY_VENDORS = ["엘탑","LQC","하이에어","오션"];   /* 가스 디텍터만 쓰는 업체 (부자재 관리 대상 아님) */
+const GAS_VENDORS = VENDORS.concat(GAS_ONLY_VENDORS);          /* 가스 디텍터 수령 업체 */
+const COMPANIES = [DEPT].concat(VENDORS).concat(GAS_ONLY_VENDORS);   /* 가입·소속 변경 선택지 */
 const LEVEL_NAME = {1:"업체 불출자",2:"업체 공구장",3:"부서 관리자",4:"부서 공구장",5:"시스템 관리자"};
 const LEVEL_DESC = {
   1:"등록된 품목을 불출(차감)만 할 수 있습니다.",
@@ -283,6 +301,7 @@ let S = {
   co:null,                       /* 현재 보고 있는 업체 */
   reqMonth:nextMonth(), dlvMonth:null, histYear:null, histCat:"", histCo:"", histReq:false, histSearch:"", dlvSearch:"", dlvItem:null, reqView:"list", reqCat:"", reqSearch:"", reqScope:"freq", reqLimit:60,
   wMode:"out", wItem:null, wQty:0, wSearch:"", wMsg:null, wTeam:"",
+  gasUnits:[], gasLoans:[], gasReady:null, gPick:[], gMonth:"", gHCo:"", gSearch:"",
   logFilter:{item:"",team:"",type:"",from:"",to:""},
   sync:"ok", lastSync:0, msg:{}
 };
@@ -340,7 +359,8 @@ function isViewer(){ return !!(S.user&&S.user.readOnly); }
 var VIEWER_OK=["#coSel","#stSearch","#wSearch","#wClose","#rMonth","#rCat","#rSearch","#rMore","[data-rv]","[data-rsc]",
   "#hYear","#hCo","#hReq","#hSearch","[data-hcat]","#f_item","#f_type","#f_from","#f_to","#f_team","#f_reset",
   "#iCat","#iSearch","#dMonth","#dSearch",".dPick",".dPickBtn",".dMon","#bMonth","#bCat","#bOpen","#bSearch",
-  "#clCat","#clSearch","#goColist","#csvUsers","#csvStock","#csvStk","#csvReq","#csvLog","#csvItems","#csvHist","#csvEmg","#csvBuy","#xlsForm"].join(",");
+  "#clCat","#clSearch","#goColist","#csvUsers","#csvStock","#csvStk","#csvReq","#csvLog","#csvItems","#csvHist","#csvEmg","#csvBuy","#xlsForm",
+  "#gMonth","#gHCo","#gSearch","#csvGas"].join(",");
 function applyViewerLock(){
   if(!isViewer()) return;
   document.querySelectorAll("main button, main input, main select, main textarea").forEach(function(el){
@@ -389,7 +409,15 @@ var M = {
   stkIn:function(r){ return {id:r.id,ts:Number(r.ts),company:r.company,by:r.by_id,byName:r.by_name,
     note:r.note,lines:r.lines||[],total:r.total}; },
   stkOut:function(s){ return {id:s.id,ts:s.ts,company:s.company,by_id:s.by,by_name:s.byName,
-    note:s.note,lines:s.lines,total:s.total}; }
+    note:s.note,lines:s.lines,total:s.total}; },
+  gasUnitIn:function(r){ return {id:r.id,model:r.model,spec:r.spec||"",status:r.status||"ok",note:r.note||"",calibDue:r.calib_due||"",sort:r.sort||0,updatedAt:Number(r.updated_at)||0}; },
+  gasUnitOut:function(u){ return {id:u.id,model:u.model,spec:u.spec||"",status:u.status||"ok",note:u.note||"",calib_due:u.calibDue||null,sort:u.sort||0}; },
+  gasLoanIn:function(r){ return {id:r.id,unitId:r.unit_id,company:r.company,site:r.site||"",taker:r.taker||"",outAt:Number(r.out_at),outBy:r.out_by_id,outByName:r.out_by_name,
+    inAt:r.in_at?Number(r.in_at):null,inBy:r.in_by_id,inByName:r.in_by_name,inNote:r.in_note||"",
+    checkedAt:r.checked_at?Number(r.checked_at):null,checkedBy:r.checked_by_id,checkedByName:r.checked_by_name,checkNote:r.check_note||"",updatedAt:Number(r.updated_at)||0}; },
+  gasLoanOut:function(l){ return {id:l.id,unit_id:l.unitId,company:l.company,site:l.site||"",taker:l.taker||"",out_at:l.outAt,out_by_id:l.outBy||null,out_by_name:l.outByName||null,
+    in_at:l.inAt||null,in_by_id:l.inBy||null,in_by_name:l.inByName||null,in_note:l.inNote||"",
+    checked_at:l.checkedAt||null,checked_by_id:l.checkedBy||null,checked_by_name:l.checkedByName||null,check_note:l.checkNote||""}; }
 };
 
 /* ── Supabase Auth: 사번을 가상 이메일로 변환 ── */
@@ -431,7 +459,7 @@ async function pullItems(){
    · 없으면 테이블별 조건 조회로 대신합니다(전송량은 조금 더 듦).
    삭제된 행은 서버 행 수와 비교해 감지하고, 30분마다 한 번은 전체를 다시 받습니다.
    ──────────────────────────────────────────────────────────── */
-var SYNC={base:false, rpc:null, n:0, logTs:0, voidAt:0, reqUpd:0, stkTs:0, stockUpd:0, userUpd:0, emgUpd:0, hasUpd:{}};
+var SYNC={base:false, rpc:null, touch:null, n:0, logTs:0, voidAt:0, reqUpd:0, stkTs:0, stockUpd:0, userUpd:0, emgUpd:0, gasUpd:0, gasUnitUpd:0, hasUpd:{}};
 function maxOf(rows,key,cur){ var m=cur||0; (rows||[]).forEach(function(r){ var v=Number(r[key]); if(v>m) m=v; }); return m; }
 function mergeById(arr,rows,mapper){
   if(!rows||!rows.length) return arr;
@@ -465,9 +493,43 @@ async function pullFull(){
   S.stocktakes=res[5].map(M.stkIn);
   SYNC.hasUpd={ stocks:res[1].length?("updated_at" in res[1][0]):false, users:res[0].length?("updated_at" in res[0][0]):false,
     emergencies:res[4].length?("updated_at" in res[4][0]):null };
+  await probeTouch(res[0]);
   SYNC.logTs=0; SYNC.voidAt=0; SYNC.reqUpd=0; SYNC.stkTs=0; SYNC.stockUpd=0; SYNC.userUpd=0; SYNC.emgUpd=0;
   noteMarkers({logs:res[2],requests:res[3],stocktakes:res[5],stocks:res[1],users:res[0],emergencies:res[4]});
+  await pullGas(true);
   SYNC.base=true; SYNC.n=0;
+}
+/* 가스 디텍터 표는 따로 받는다 — 표가 아직 없어도(SQL 미실행) 나머지 화면은 정상 동작 */
+async function pullGas(full){
+  if(S.gasReady===false && !full) return;
+  try{
+    if(full||S.gasReady!==true){
+      var u=await fetchAll("gas_units","sort"), l=await fetchAll("gas_loans","out_at",false,3000);
+      S.gasUnits=u.map(M.gasUnitIn); S.gasLoans=l.map(M.gasLoanIn); S.gasReady=true;
+      SYNC.gasUpd=maxOf(l,"updated_at",0); SYNC.gasUnitUpd=maxOf(u,"updated_at",0);
+    } else {
+      var rs=await Promise.all([db.from("gas_loans").select("*").gt("updated_at",SYNC.gasUpd).limit(1000),
+                                db.from("gas_units").select("*").gt("updated_at",SYNC.gasUnitUpd)]);
+      rs.forEach(function(x){ if(x.error) throw x.error; });
+      mergeById(S.gasLoans,rs[0].data,M.gasLoanIn); mergeById(S.gasUnits,rs[1].data,M.gasUnitIn);
+      SYNC.gasUpd=maxOf(rs[0].data,"updated_at",SYNC.gasUpd); SYNC.gasUnitUpd=maxOf(rs[1].data,"updated_at",SYNC.gasUnitUpd);
+      if(SYNC.n%6===0){ var c=await db.from("gas_loans").select("id",{count:"exact",head:true});
+        if(!c.error&&c.count!=null&&c.count!==S.gasLoans.length){ var l2=await fetchAll("gas_loans","out_at",false,3000); S.gasLoans=l2.map(M.gasLoanIn); SYNC.gasUpd=maxOf(l2,"updated_at",0); } }
+    }
+  }catch(e){ console.error(e); if(S.gasReady!==true) S.gasReady=false; }
+}
+/* 서버가 updated_at 을 자동 기록(touch 트리거, v12/v15 SQL)하는지 한 번만 확인.
+   내 계정 행의 last_login 을 다시 쓰고 updated_at 이 올라가는지 본다. 확인되지 않으면
+   stocks·users·emergencies 는 증분이 아니라 매번 전체를 받는다(놓치는 변경이 없도록). */
+async function probeTouch(userRows){
+  if(SYNC.touch!=null || !S.user || isViewer()) return;
+  try{
+    var me=(userRows||[]).filter(function(r){ return r.id===S.user.id; })[0];
+    if(!me || !("updated_at" in me)){ SYNC.touch=false; return; }
+    var w=await db.from("users").update({last_login:Date.now()}).eq("id",S.user.id).select("updated_at").single();
+    if(w.error||!w.data) return;                        /* 판단 보류 → 전체 수신 */
+    SYNC.touch = Number(w.data.updated_at||0) > Number(me.updated_at||0);
+  }catch(e){ console.error(e); }
 }
 async function refetch(table){
   if(table==="requests"){ var r=await fetchAll("requests","id"); S.requests=r.map(M.reqIn); SYNC.reqUpd=maxOf(r,"updated_at",0); }
@@ -486,16 +548,17 @@ async function pullInc(){
     } else { SYNC.rpc=true; d=r.data||{}; }
   }
   if(!d){
-    /* 서버 함수가 없을 때: 테이블별 조건 조회 (updated_at 칸이 없는 표는 전체) */
+    /* 서버 함수가 없을 때: 테이블별 조건 조회 (updated_at 이 자동 기록되지 않는 표는 전체) */
+    var upd=function(tb){ return SYNC.touch===true && !!SYNC.hasUpd[tb]; };
     var qs=[
       db.from("logs").select("*").gt("ts",SYNC.logTs).order("ts",{ascending:false}).limit(1000),
       db.from("logs").select("*").gt("void_at",SYNC.voidAt).limit(500),
       db.from("requests").select("*").gt("updated_at",SYNC.reqUpd).limit(2000),
       db.from("stocktakes").select("*").gt("ts",SYNC.stkTs).limit(200),
       db.from("settings").select("*"),
-      SYNC.hasUpd.stocks? db.from("stocks").select("*").gt("updated_at",SYNC.stockUpd).limit(2000) : fetchAll("stocks","id").then(function(x){ return {data:x,full:true}; }),
-      SYNC.hasUpd.users? db.from("users").select("*").gt("updated_at",SYNC.userUpd) : fetchAll("users","id").then(function(x){ return {data:x,full:true}; }),
-      SYNC.hasUpd.emergencies? db.from("emergencies").select("*").gt("updated_at",SYNC.emgUpd) : fetchAll("emergencies","ts",false).then(function(x){ return {data:x,full:true}; })
+      upd("stocks")? db.from("stocks").select("*").gt("updated_at",SYNC.stockUpd).limit(2000) : fetchAll("stocks","id").then(function(x){ return {data:x,full:true}; }),
+      upd("users")? db.from("users").select("*").gt("updated_at",SYNC.userUpd) : fetchAll("users","id").then(function(x){ return {data:x,full:true}; }),
+      upd("emergencies")? db.from("emergencies").select("*").gt("updated_at",SYNC.emgUpd) : fetchAll("emergencies","ts",false).then(function(x){ return {data:x,full:true}; })
     ];
     var rs=await Promise.all(qs);
     rs.forEach(function(x){ if(x&&x.error) throw x.error; });
@@ -526,6 +589,7 @@ async function pullInc(){
     if(c.emergencies!=null&&c.emergencies!==S.emergencies.length) jobs.push(refetch("emergencies"));
     if(jobs.length) await Promise.all(jobs);
   }
+  await pullGas(false);
   SYNC.n++;
 }
 async function pull(full){
@@ -597,7 +661,9 @@ function render(){
 /* ── 로그인 / 가입 신청 ───────────────────────────────────── */
 function viewAuth(){
   if(S.pendInfo) return viewPending();
-  var coOpts=COMPANIES.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join("");
+  var opt=function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; };
+  var coOpts='<optgroup label="부서">'+opt(DEPT)+'</optgroup><optgroup label="협력업체">'+VENDORS.map(opt).join("")+'</optgroup>'+
+    (GAS_ONLY_VENDORS.length?'<optgroup label="가스 디텍터 전용 업체">'+GAS_ONLY_VENDORS.map(opt).join("")+'</optgroup>':"");
   var lvOpts=[1,2,3].map(function(n){
     return '<option value="'+n+'">Lv.'+n+' · '+LEVEL_NAME[n]+'</option>'; }).join("");
   return '<div class="auth-wrap"><div class="auth-card">'+
@@ -774,6 +840,7 @@ function pendingCount(){ return canGrant()? S.users.filter(function(u){return u.
 function emgOpen(){ return lv(3)? S.emergencies.filter(function(e){return e.status==="pending";}).length : 0; }
 
 function tabList(){
+  if(isGasOnly()) return [{k:"gas",l:"가스 디텍터",badge:gasBadge()},{k:"me",l:"내 계정"}];
   var t=[{k:"dash",l:"재고 현황"}];
   t.push({k:"mylog",l:"나의 이력"});
   if(canRequest()) t.push({k:"emg",l:"긴급 신청",badge:emgOpen()});
@@ -784,6 +851,7 @@ function tabList(){
   if(lv(2)) t.push({k:"logs",l:lv(3)?"전체 로그":"업체 로그"});
   if(lv(2)) t.push({k:"stk",l:"재고 실사"});
   if(lv(2)) t.push({k:"colist",l:"업체 취급 품목"});
+  t.push({k:"gas",l:"가스 디텍터",badge:gasBadge()});
   if(lv(4)) t.push({k:"duty",l:"당직 관리"});
   if(canGrant()) t.push({k:"grant",l:"권한 관리",badge:pendingCount()});
   if(canManageItems()) t.push({k:"items",l:"품목 마스터"});
@@ -794,7 +862,7 @@ function tabList(){
 function viewShell(){
   var tabs=tabList();
   if(S.tab==="withdraw") S.tab="dash";
-  if(!tabs.filter(function(t){return t.k===S.tab;}).length) S.tab="dash";
+  if(!tabs.filter(function(t){return t.k===S.tab;}).length) S.tab=tabs[0].k;
   var u=S.user;
   return '<div class="topbar">'+
     '<div class="brand"><div class="mark">SY</div>'+
@@ -845,13 +913,13 @@ function bindShell(){
     el.onclick=async function(){ S.tab=el.dataset.tab; S.msg={}; S.wMsg=null; await pull(); render(); }; });
   var cs=document.getElementById("coSel");
   if(cs) cs.onchange=function(){ S.co=cs.value; S.wItem=null; S.wQty=0; render(); };
-  var fn={dash:bindDash,withdraw:bindWithdraw,emg:bindEmg,req:bindReq,hist:bindHist,duty:bindDuty,buy:bindBuy,dlv:bindDlv,logs:bindLogs,
+  var fn={dash:bindDash,withdraw:bindWithdraw,emg:bindEmg,req:bindReq,hist:bindHist,duty:bindDuty,buy:bindBuy,dlv:bindDlv,logs:bindLogs,gas:bindGas,
     stk:bindStk,colist:bindColist,grant:bindGrant,items:bindItems,me:bindMe}[S.tab];
   if(fn) fn();
 }
 
 function viewTab(){
-  var fn={dash:viewDash,withdraw:viewWithdraw,mylog:viewMyLog,emg:viewEmg,req:viewReq,hist:viewHist,duty:viewDuty,buy:viewBuy,dlv:viewDlv,
+  var fn={dash:viewDash,withdraw:viewWithdraw,mylog:viewMyLog,emg:viewEmg,req:viewReq,hist:viewHist,duty:viewDuty,buy:viewBuy,dlv:viewDlv,gas:viewGas,
     logs:viewLogs,stk:viewStk,colist:viewColist,grant:viewGrant,items:viewItems,me:viewMe}[S.tab];
   return fn?fn():"";
 }
@@ -897,7 +965,7 @@ function formDirty(){
 }
 function dataSig(){
   var sig=function(arr){ var n=arr.length, t=0; for(var i=0;i<n;i++){ var r=arr[i]; t+=(r.updatedAt||r.ts||r.lastLogin||0)+(r.qty||r.receivedQty||r.stock||0)+(r.status?r.status.length:0); } return n+":"+t; };
-  return [sig(S.requests),sig(S.stocks),sig(S.logs),sig(S.emergencies),sig(S.stocktakes),sig(S.users),JSON.stringify(S.settings||{})].join("|");
+  return [sig(S.requests),sig(S.stocks),sig(S.logs),sig(S.emergencies),sig(S.stocktakes),sig(S.users),sig(S.gasLoans||[]),sig(S.gasUnits||[]),JSON.stringify(S.settings||{})].join("|");
 }
 var lastSig=null;
 function startPoll(){ stopPoll(); pollTimer=setInterval(async function(){
@@ -2881,6 +2949,8 @@ function viewMe(){
      ["로그 정정",lv(3)],
      ["Excel 내보내기",canExport()],
      ["품목 마스터 (신규 등록·수정·삭제)",canManageItems()],
+     ["가스 디텍터 수령·반납 등록 (자기 업체)",canGasOut()],
+     ["가스 디텍터 반납 확인 · 기기 대장 관리",lv(4)],
      ["권한 부여",canGrant()]].map(function(r){
        return '<tr><td class="kr">'+r[0]+'</td><td>'+(isViewer()?(r[1]?'<span class="tag t-grey">조회만</span>':'<span class="tag t-grey">불가</span>'):r[1]
          ?'<span class="tag t-ok">가능</span>':'<span class="tag t-grey">불가</span>')+'</td></tr>'; }).join("")+
@@ -2904,6 +2974,226 @@ function bindMe(){
     JSON.stringify({exportedAt:new Date().toISOString(),users:S.users,items:S.items,stocks:S.stocks,
       logs:S.logs,requests:S.requests,emergencies:S.emergencies,stocktakes:S.stocktakes},null,2),
     "application/json"); };
+}
+
+/* ══════════════════════════════════════════════════════════
+   가스 디텍터(GAS DETECTOR) 순환 관리 — 수령 · 반납 · 부서 공구장 확인
+   기기 1대 = 동시 1건 사용 중. 수령·현장·반납은 업체(Lv.2), 확인·대신 등록·기기 대장은 부서 공구장(Lv.4)
+   ══════════════════════════════════════════════════════════ */
+function isGasOnly(){ return !!(S.user && GAS_ONLY_VENDORS.indexOf(S.user.company)>=0); }
+function canGasOut(){ return lv(4) || (lv(2) && !isDept()); }
+function canGasEdit(l){ return lv(4) || (lv(2) && !isDept() && l.company===S.user.company && !l.checkedAt); }
+function gasOpen(){ return S.gasLoans.filter(function(l){ return !l.inAt; }); }
+function gasPending(){ return S.gasLoans.filter(function(l){ return l.inAt&&!l.checkedAt; }); }
+function gasBadge(){
+  if(S.gasReady!==true) return 0;
+  if(lv(4)) return gasPending().length;
+  if(isDept()) return 0;
+  return gasOpen().filter(function(l){ return l.company===S.user.company&&Date.now()-l.outAt>=48*36e5; }).length;
+}
+function gasUnitById(id){ return S.gasUnits.filter(function(u){return u.id===id;})[0]; }
+function gasShort(id){ var m=/(\d+)$/.exec(id||""); return m? m[1].slice(-5) : id; }
+function gasElapsed(ms){ var h=Math.floor((Date.now()-ms)/36e5); if(h<1) return "1시간 미만"; var d=Math.floor(h/24); return d>0? d+"일 "+(h%24)+"시간" : h+"시간"; }
+function gasElapsedTag(l){ var h=(Date.now()-l.outAt)/36e5; var cls=h>=72?"t-danger":h>=48?"t-warn":"t-grey"; return '<span class="tag '+cls+'">'+gasElapsed(l.outAt)+'</span>'; }
+function gasStatusName(s){ return {ok:"사용 가능",repair:"점검·수리",retired:"폐기"}[s]||s; }
+function gasMonthOf(ms){ var d=new Date(ms); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function gasLoanState(l){ return !l.inAt?"사용 중":(!l.checkedAt?"확인 대기":"확인 완료"); }
+function gasErr(msg){ var m=String(LAST_PUSH_ERR||""); if(m.indexOf("gas_loans_open_unit_idx")>=0) return "이미 사용 중(미반납)인 기기가 포함되어 있습니다. [새로고침] 후 다시 선택하세요."; return msg; }
+
+function gasHistData(){
+  var m=S.gMonth||curMonth(), co=S.gHCo||"", q=(S.gSearch||"").toLowerCase();
+  var rows=S.gasLoans.filter(function(l){
+    if(gasMonthOf(l.outAt)!==m) return false;
+    if(!lv(3)&&!isDept()&&l.company!==S.user.company) return false;
+    if(co&&l.company!==co) return false;
+    if(q){ var h=(l.unitId+" "+(l.site||"")+" "+(l.taker||"")+" "+l.company).toLowerCase(); if(h.indexOf(q)<0) return false; }
+    return true;
+  }).sort(function(a,b){ return b.outAt-a.outAt; });
+  var body=rows.map(function(l){
+    return '<tr><td class="mono"><b>'+esc(l.unitId)+'</b></td><td class="kr">'+esc(l.company)+'</td><td class="kr">'+esc(l.site||"-")+'</td><td class="kr">'+esc(l.taker||"-")+'</td>'+
+      '<td>'+fmt(l.outAt,true)+'</td><td>'+(l.inAt?fmt(l.inAt,true)+(l.inNote?'<div style="font-size:10px;color:var(--danger);">'+esc(l.inNote)+'</div>':""):'<span class="tag t-warn">사용 중</span>')+'</td>'+
+      '<td>'+(l.checkedAt?'<span class="tag t-ok">'+esc(l.checkedByName||"확인")+'</span><div style="font-size:10px;color:var(--text-mute);">'+fmt(l.checkedAt,true)+(l.checkNote?' · '+esc(l.checkNote):"")+'</div>':(l.inAt?'<span class="tag t-grey">확인 대기</span>':"-"))+'</td></tr>';
+  }).join("")||'<tr><td colspan="7" class="empty">해당 월 기록이 없습니다.</td></tr>';
+  return {rows:rows,body:body,sub:esc(m)+" · "+rows.length+"건"};
+}
+
+function viewGas(){
+  if(S.gasReady===false) return '<div class="msg msg-error"><b>가스 디텍터 표가 아직 준비되지 않았습니다.</b> 시스템 관리자가 Supabase SQL Editor 에서 <code>supabase_v15_gas_detector.sql</code> 을 실행해야 합니다.</div>';
+  if(S.gasReady!==true) return '<div class="empty">불러오는 중…</div>';
+  var units=S.gasUnits.slice().sort(function(a,b){ return (a.sort-b.sort)||a.id.localeCompare(b.id); });
+  var open=gasOpen(), openBy={}; open.forEach(function(l){ openBy[l.unitId]=l; });
+  var avail=units.filter(function(u){ return u.status==="ok"&&!openBy[u.id]; });
+  var pend=gasPending();
+  var late=open.filter(function(l){ return Date.now()-l.outAt>=48*36e5; });
+  var models=[]; units.forEach(function(u){ if(models.indexOf(u.model)<0) models.push(u.model); });
+  var canOut=canGasOut(), pick=S.gPick||[];
+  var sites=[]; S.gasLoans.slice().sort(function(a,b){return b.outAt-a.outAt;}).forEach(function(l){ if(l.site&&sites.indexOf(l.site)<0&&sites.length<30) sites.push(l.site); });
+
+  var cards='<div class="grid5">'+
+    '<div class="statcard"><div class="lbl">보유 기기</div><div class="val">'+units.filter(function(u){return u.status!=="retired";}).length+' <small>대</small></div></div>'+
+    '<div class="statcard"><div class="lbl">사용 가능</div><div class="val" style="color:var(--ok);">'+avail.length+' <small>대</small></div></div>'+
+    '<div class="statcard"><div class="lbl">사용 중 (미반납)</div><div class="val">'+open.length+' <small>대</small></div></div>'+
+    '<div class="statcard"><div class="lbl">반납 확인 대기</div><div class="val" style="color:'+(pend.length?"var(--warn)":"var(--navy)")+';">'+pend.length+' <small>건</small></div></div>'+
+    '<div class="statcard"><div class="lbl">2일 이상 미반납</div><div class="val" style="color:'+(late.length?"var(--danger)":"var(--navy)")+';">'+late.length+' <small>대</small></div></div>'+
+  '</div>';
+
+  var outPanel=canOut?'<div class="panel"><div class="panel-head"><div><h2>수령 등록</h2>'+
+    '<div class="sub">작업 전날 16시 이후 공구실에서 받아 갈 때 등록합니다. 기기를 여러 대 고르면 한 번에 등록됩니다.</div></div></div>'+
+    '<div class="panel-body">'+
+    '<div class="form-row">'+
+      '<div class="field"><label>수령 업체</label>'+(lv(4)
+        ?'<select id="gCo">'+GAS_VENDORS.map(function(c){ return '<option value="'+esc(c)+'" '+(c===(S.gOutCo||GAS_VENDORS[0])?"selected":"")+'>'+esc(c)+'</option>'; }).join("")+'</select>'
+        :'<input type="text" value="'+esc(S.user.company)+'" disabled>')+'</div>'+
+      '<div class="field"><label>수령자 이름</label><input type="text" id="gTaker" value="'+esc(S.gTaker!=null?S.gTaker:S.user.name)+'" placeholder="실제로 받아 가는 사람"></div>'+
+      '<div class="field"><label>사용 작업 현장</label><input type="text" id="gSite" list="gSiteList" value="'+esc(S.gSite||"")+'" placeholder="예: H1234 1번 탱크">'+
+        '<datalist id="gSiteList">'+sites.map(function(s){ return '<option value="'+esc(s)+'">'; }).join("")+'</datalist></div>'+
+    '</div>'+
+    '<div class="field"><label>기기 선택 — 사용 가능 '+avail.length+'대 (관리번호 끝 5자리)</label>'+
+      models.map(function(m){ var us=avail.filter(function(u){return u.model===m;}); if(!us.length) return "";
+        return '<div style="margin:4px 0 8px;"><div style="font-size:12px;font-weight:600;color:var(--text-mute);">'+esc(m)+' <span style="font-weight:400;">· '+esc(us[0].spec)+'</span></div>'+
+          '<div class="qchips" style="margin-top:6px;">'+us.map(function(u){ var on=pick.indexOf(u.id)>=0;
+            return '<button type="button" class="qchip gPick'+(on?' on':'')+'" data-id="'+esc(u.id)+'" title="'+esc(u.id)+(u.calibDue?' · 교정 만료 '+esc(u.calibDue):"")+'">'+esc(gasShort(u.id))+'</button>'; }).join("")+'</div></div>'; }).join("")+
+      (avail.length?'':'<div class="hint">지금 사용 가능한 기기가 없습니다.</div>')+'</div>'+
+    '<button class="btn btn-primary" id="gOut" '+(pick.length?'':'disabled')+'>선택 <span id="gPickN">'+pick.length+'</span>대 수령 등록</button>'+
+    '</div></div>':"";
+
+  var openList=(lv(3)||isDept()?open:open.filter(function(l){ return l.company===S.user.company; })).sort(function(a,b){ return a.outAt-b.outAt; });
+  var openRows=openList.map(function(l){ var u=gasUnitById(l.unitId)||{model:""}; var ed=canGasEdit(l);
+    return '<tr><td><span class="idtag">'+esc(l.unitId)+'</span></td><td class="hide-m">'+esc(u.model)+'</td><td class="kr"><b>'+esc(l.company)+'</b></td><td class="kr" data-l="작업 현장">'+esc(l.site||"-")+'</td><td class="kr" data-l="수령자">'+esc(l.taker||"-")+'</td>'+
+      '<td data-l="수령">'+fmt(l.outAt,true)+(l.outByName&&l.outByName!==l.taker?'<div style="font-size:10px;color:var(--text-mute);">등록 '+esc(l.outByName)+'</div>':"")+'</td><td data-l="경과">'+gasElapsedTag(l)+'</td>'+
+      '<td class="acts" style="white-space:nowrap;">'+(ed?'<button class="btn btn-primary btn-sm gIn" data-id="'+esc(l.id)+'">반납</button> '+
+        '<button class="btn btn-ghost btn-sm gSiteEd" data-id="'+esc(l.id)+'">현장·수령자 수정</button> '+
+        '<button class="btn btn-ghost btn-sm gDel" data-id="'+esc(l.id)+'" title="잘못 등록한 수령 삭제">삭제</button>':'')+'</td></tr>'; }).join("")
+    ||'<tr><td colspan="8" class="empty">사용 중인 기기가 없습니다.</td></tr>';
+
+  var pendRows=pend.sort(function(a,b){ return a.inAt-b.inAt; }).map(function(l){
+    return '<tr><td><span class="idtag">'+esc(l.unitId)+'</span></td><td class="kr"><b>'+esc(l.company)+'</b></td><td class="kr" data-l="작업 현장">'+esc(l.site||"-")+'</td><td class="kr" data-l="수령자">'+esc(l.taker||"-")+'</td>'+
+      '<td data-l="수령 → 반납">'+fmt(l.outAt,true)+' → '+fmt(l.inAt,true)+'</td><td data-l="반납 상태">'+(l.inNote?'<span class="tag t-danger">'+esc(l.inNote)+'</span>':'<span class="tag t-ok">정상</span>')+'</td>'+
+      '<td class="acts">'+(lv(4)?'<button class="btn btn-navy btn-sm gChk" data-id="'+esc(l.id)+'">확인</button>':'<span class="tag t-grey">확인 대기</span>')+'</td></tr>'; }).join("")
+    ||'<tr><td colspan="7" class="empty">확인 대기 중인 반납이 없습니다.</td></tr>';
+
+  var unitRows=units.map(function(u){ var o=openBy[u.id];
+    var st=u.status!=="ok"?'<span class="tag '+(u.status==="retired"?"t-grey":"t-warn")+'">'+gasStatusName(u.status)+'</span>'
+      :(o?'<span class="tag t-ret">사용 중</span> <span style="font-size:11px;">'+esc(o.company)+' · '+esc(o.site||"")+' · '+esc(o.taker||"")+'</span>':'<span class="tag t-ok">사용 가능</span>');
+    var cal=u.calibDue?(new Date(u.calibDue)<new Date()?'<span class="tag t-danger">'+esc(u.calibDue)+' 만료</span>':esc(u.calibDue)):'-';
+    return '<tr><td><span class="idtag">'+esc(u.id)+'</span></td><td>'+esc(u.model)+'<div style="font-size:10.5px;color:var(--text-mute);">'+esc(u.spec)+'</div></td><td>'+st+'</td>'+
+      (lv(4)?'<td><select class="gUSt" data-id="'+esc(u.id)+'" style="width:auto;">'+["ok","repair","retired"].map(function(s){ return '<option value="'+s+'" '+(s===u.status?"selected":"")+'>'+gasStatusName(s)+'</option>'; }).join("")+'</select></td>'+
+        '<td><input type="date" class="gUCal" data-id="'+esc(u.id)+'" value="'+esc(u.calibDue||"")+'" style="width:140px;"></td>'+
+        '<td><input type="text" class="gUNote" data-id="'+esc(u.id)+'" value="'+esc(u.note||"")+'" placeholder="비고" style="width:160px;"></td>'+
+        '<td><button class="btn btn-ghost btn-sm gUSave" data-id="'+esc(u.id)+'">저장</button></td>'
+        :'<td>'+cal+'</td><td class="kr">'+esc(u.note||"")+'</td>')+'</tr>'; }).join("");
+
+  var months=[]; S.gasLoans.forEach(function(l){ var m=gasMonthOf(l.outAt); if(months.indexOf(m)<0) months.push(m); });
+  var cm=curMonth(); if(months.indexOf(cm)<0) months.push(cm); months.sort().reverse();
+  var h=gasHistData();
+  var cos=[]; S.gasLoans.forEach(function(l){ if(cos.indexOf(l.company)<0) cos.push(l.company); }); cos.sort();
+
+  return (S.msg.gas?'<div class="msg msg-ok">'+esc(S.msg.gas)+'</div>':"")+
+    '<div class="msg msg-info"><b>운영 규칙</b> — 작업 전날 16시 이후 공구실에서 수령 → 작업 현장에서 사용 → 작업 종료 시 반납 (16시 이후 종료 시 업체가 보관·충전 후 다음날 작업 종료 시 반납). '+
+    '수령·현장·반납은 <b>업체 공구장(Lv.2)</b>이, 반납 확인과 기기 대장은 <b>부서 공구장(Lv.4)</b>이 등록합니다. 기기 1대는 한 번에 한 업체만 쓸 수 있습니다.</div>'+
+    cards+outPanel+
+    '<div class="panel"><div class="panel-head"><div><h2>사용 중 (미반납)</h2><div class="sub">'+openList.length+'대 · 2일 이상 지나면 주황, 3일 이상이면 빨강으로 표시됩니다</div></div></div>'+
+    '<div class="tablewrap"><table class="gcards"><thead><tr><th>관리번호</th><th class="hide-m">모델</th><th>업체</th><th>작업 현장</th><th>수령자</th><th>수령</th><th>경과</th><th></th></tr></thead><tbody>'+openRows+'</tbody></table></div></div>'+
+    '<div class="panel"><div class="panel-head"><div><h2>반납 확인 대기</h2><div class="sub">업체가 반납 등록한 기기를 부서 공구장이 실물 확인(상태·충전) 후 [확인]합니다 · '+pend.length+'건</div></div>'+
+      (lv(4)&&pend.length?'<button class="btn btn-navy btn-sm" id="gChkAll">전체 확인 ('+pend.length+'건)</button>':"")+'</div>'+
+    '<div class="tablewrap"><table class="gcards"><thead><tr><th>관리번호</th><th>업체</th><th>작업 현장</th><th>수령자</th><th>수령 → 반납</th><th>반납 상태</th><th></th></tr></thead><tbody>'+pendRows+'</tbody></table></div></div>'+
+    '<div class="panel"><div class="panel-head"><div><h2>기기 현황</h2><div class="sub">관리번호·모델은 고정값입니다'+(lv(4)?' · 상태·교정 만료일·비고를 수정할 수 있습니다':"")+'</div></div></div>'+
+    '<div class="tablewrap"><table><thead><tr><th>관리번호</th><th>모델 / 감지 가스</th><th>상태</th>'+(lv(4)?'<th>상태 변경</th><th>교정 만료일</th><th>비고</th><th></th>':'<th>교정 만료</th><th>비고</th>')+'</tr></thead><tbody>'+unitRows+'</tbody></table></div>'+
+    (lv(4)?'<div class="panel-body" style="border-top:1px solid var(--steel-line);"><div class="form-row">'+
+      '<div class="field"><label>새 기기 관리번호</label><input type="text" id="gUId" placeholder="예: 604-109-00999"></div>'+
+      '<div class="field"><label>모델</label><input type="text" id="gUModel" list="gModelList" placeholder="예: GX-2009"><datalist id="gModelList">'+models.map(function(m){ return '<option value="'+esc(m)+'">'; }).join("")+'</datalist></div>'+
+      '<div class="field"><label>감지 가스</label><input type="text" id="gUSpec" placeholder="예: CH4, H2S, O2, CO"></div>'+
+      '<div class="field"><label>&nbsp;</label><button class="btn btn-navy" id="gUAdd">기기 추가</button></div></div></div>':"")+
+    '</div>'+
+    '<div class="panel"><div class="panel-head"><div><h2>수령·반납 이력</h2><div class="sub" id="gHSub">'+h.sub+'</div></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'+
+      '<select id="gMonth" style="width:auto;">'+months.map(function(m){ return '<option value="'+m+'" '+(m===(S.gMonth||cm)?"selected":"")+'>'+m+'</option>'; }).join("")+'</select>'+
+      (lv(3)||isDept()?'<select id="gHCo" style="width:auto;"><option value="">전체 업체</option>'+cos.map(function(c){ return '<option value="'+esc(c)+'" '+(c===S.gHCo?"selected":"")+'>'+esc(c)+'</option>'; }).join("")+'</select>':"")+
+      '<input type="text" id="gSearch" placeholder="관리번호·현장·수령자 검색" value="'+esc(S.gSearch||"")+'" style="width:200px;">'+
+      (canExport()?'<button class="btn btn-ghost btn-sm" id="csvGas">Excel 내보내기</button>':"")+'</div></div>'+
+    '<div class="tablewrap"><table><thead><tr><th>관리번호</th><th>업체</th><th>작업 현장</th><th>수령자</th><th>수령</th><th>반납</th><th>부서 공구장 확인</th></tr></thead><tbody id="gHBody">'+h.body+'</tbody></table></div></div>';
+}
+
+function bindGas(){
+  var L=function(id){ return S.gasLoans.filter(function(l){return l.id===id;})[0]; };
+  var who=function(){ return {id:S.user.id,name:S.user.name}; };
+  /* 수령 등록 */
+  document.querySelectorAll(".gPick").forEach(function(el){ el.onclick=function(){
+    S.gPick=S.gPick||[]; var i=S.gPick.indexOf(el.dataset.id);
+    if(i>=0){ S.gPick.splice(i,1); el.classList.remove("on"); } else { S.gPick.push(el.dataset.id); el.classList.add("on"); }
+    var n=document.getElementById("gPickN"); if(n) n.textContent=S.gPick.length;
+    var b=document.getElementById("gOut"); if(b) b.disabled=!S.gPick.length; }; });
+  var gco=document.getElementById("gCo"); if(gco) gco.onchange=function(){ S.gOutCo=gco.value; };
+  var gt=document.getElementById("gTaker"); if(gt) gt.oninput=function(){ S.gTaker=gt.value; };
+  var gs=document.getElementById("gSite"); if(gs) gs.oninput=function(){ S.gSite=gs.value; };
+  var go=document.getElementById("gOut");
+  if(go) go.onclick=async function(){
+    if(!canGasOut()){ toast("수령 등록 권한이 없습니다.",true); return; }
+    var picks=(S.gPick||[]).slice(); if(!picks.length){ toast("기기를 선택하세요.",true); return; }
+    var co=lv(4)?(document.getElementById("gCo")||{}).value:S.user.company;
+    var taker=(document.getElementById("gTaker").value||"").trim(), site=(document.getElementById("gSite").value||"").trim();
+    if(!taker){ toast("수령자 이름을 입력하세요.",true); return; }
+    if(!site){ toast("사용 작업 현장을 입력하세요.",true); return; }
+    if(!confirm(co+" · "+taker+"\n작업 현장: "+site+"\n기기 "+picks.length+"대: "+picks.map(gasShort).join(", ")+"\n\n수령 등록할까요?")) return;
+    var now=Date.now(), me=who();
+    var rows=picks.map(function(uid_){ return M.gasLoanOut({id:uid(),unitId:uid_,company:co,site:site,taker:taker,outAt:now,outBy:me.id,outByName:me.name}); });
+    var r=await push(function(){ return db.from("gas_loans").insert(rows); });
+    if(!r){ toast(gasErr("저장에 실패했습니다."),true); await pull(); render(); return; }
+    S.gPick=[]; S.gSite=""; S.msg.gas=taker+" · "+picks.length+"대 수령 등록 ("+site+")";
+    await pull(); render();
+  };
+  /* 반납 */
+  document.querySelectorAll(".gIn").forEach(function(el){ el.onclick=async function(){
+    var l=L(el.dataset.id); if(!l||!canGasEdit(l)) return;
+    var note=prompt(l.unitId+" 반납\n기기 상태에 이상이 있으면 적어 주세요 (정상이면 그대로 확인)", "");
+    if(note===null) return;
+    var me=who();
+    if(await push(function(){ return db.from("gas_loans").update({in_at:Date.now(),in_by_id:me.id,in_by_name:me.name,in_note:note.trim()}).eq("id",l.id); },"반납 등록되었습니다. 부서 공구장 확인 후 완료됩니다.")){
+      await pull(); render(); } else { toast(gasErr("반납 등록에 실패했습니다."),true); } }; });
+  /* 현장·수령자 수정 */
+  document.querySelectorAll(".gSiteEd").forEach(function(el){ el.onclick=async function(){
+    var l=L(el.dataset.id); if(!l||!canGasEdit(l)) return;
+    var site=prompt("사용 작업 현장", l.site||""); if(site===null) return;
+    var taker=prompt("수령자 이름", l.taker||""); if(taker===null) return;
+    if(await push(function(){ return db.from("gas_loans").update({site:site.trim(),taker:taker.trim()}).eq("id",l.id); },"수정되었습니다.")){ await pull(); render(); } }; });
+  /* 삭제 (잘못 등록) */
+  document.querySelectorAll(".gDel").forEach(function(el){ el.onclick=async function(){
+    var l=L(el.dataset.id); if(!l) return;
+    if(!confirm(l.unitId+" 수령 기록을 삭제합니다. 실제로 수령하지 않은 경우에만 사용하세요.")) return;
+    if(await push(function(){ return db.from("gas_loans").delete().eq("id",l.id); },"삭제되었습니다.")){ await pull(true); render(); } }; });
+  /* 부서 공구장 확인 */
+  var chk=async function(ids){
+    var note=prompt(ids.length+"건을 확인 처리합니다.\n특이사항이 있으면 적어 주세요 (없으면 그대로 확인)", ""); if(note===null) return;
+    var me=who(), ok=0;
+    for(var i=0;i<ids.length;i++){
+      if(await push((function(id){ return function(){ return db.from("gas_loans").update({checked_at:Date.now(),checked_by_id:me.id,checked_by_name:me.name,check_note:note.trim()}).eq("id",id); }; })(ids[i]))) ok++; }
+    S.msg.gas=ok+"건 확인 처리"; await pull(); render(); };
+  document.querySelectorAll(".gChk").forEach(function(el){ el.onclick=function(){ if(!lv(4)) return; chk([el.dataset.id]); }; });
+  var ca=document.getElementById("gChkAll"); if(ca) ca.onclick=function(){ if(!lv(4)) return; chk(gasPending().map(function(l){return l.id;})); };
+  /* 기기 대장 */
+  document.querySelectorAll(".gUSave").forEach(function(el){ el.onclick=async function(){
+    var u=gasUnitById(el.dataset.id); if(!u||!lv(4)) return;
+    var sel=document.querySelector('.gUSt[data-id="'+CSS.escape(u.id)+'"]'), cal=document.querySelector('.gUCal[data-id="'+CSS.escape(u.id)+'"]'), nt=document.querySelector('.gUNote[data-id="'+CSS.escape(u.id)+'"]');
+    var st=sel?sel.value:u.status;
+    if(st!=="ok"&&gasOpen().some(function(l){return l.unitId===u.id;})){ toast("사용 중인 기기는 먼저 반납 처리한 뒤 상태를 바꾸세요.",true); return; }
+    if(await push(function(){ return db.from("gas_units").update({status:st,calib_due:(cal&&cal.value)?cal.value:null,note:nt?nt.value.trim():u.note}).eq("id",u.id); },"저장되었습니다.")){ await pull(); render(); } }; });
+  var ua=document.getElementById("gUAdd");
+  if(ua) ua.onclick=async function(){
+    if(!lv(4)) return;
+    var id=(document.getElementById("gUId").value||"").trim(), model=(document.getElementById("gUModel").value||"").trim(), spec=(document.getElementById("gUSpec").value||"").trim();
+    if(!id||!model){ toast("관리번호와 모델을 입력하세요.",true); return; }
+    if(gasUnitById(id)){ toast("이미 등록된 관리번호입니다.",true); return; }
+    var sort=S.gasUnits.reduce(function(a,u){ return Math.max(a,u.sort||0); },0)+1;
+    if(await push(function(){ return db.from("gas_units").insert(M.gasUnitOut({id:id,model:model,spec:spec,status:"ok",note:"",calibDue:"",sort:sort})); },id+" 추가되었습니다.")){ await pull(); render(); } };
+  /* 이력 필터 */
+  var refreshHist=function(){ var d=gasHistData(); var b=document.getElementById("gHBody"); if(b) b.innerHTML=d.body; var s=document.getElementById("gHSub"); if(s) s.textContent=d.sub; };
+  var gm=document.getElementById("gMonth"); if(gm) gm.onchange=function(){ S.gMonth=gm.value; refreshHist(); };
+  var gc=document.getElementById("gHCo"); if(gc) gc.onchange=function(){ S.gHCo=gc.value; refreshHist(); };
+  var gq=document.getElementById("gSearch"); if(gq) gq.oninput=function(){ S.gSearch=gq.value; refreshHist(); };
+  var cx=document.getElementById("csvGas");
+  if(cx) cx.onclick=function(){ var d=gasHistData();
+    exportCSV("가스디텍터이력_"+(S.gMonth||curMonth()),["관리번호","모델","업체","작업현장","수령자","수령시각","수령등록자","반납시각","반납등록자","반납상태","확인자","확인시각","확인메모","상태"],
+      d.rows.map(function(l){ var u=gasUnitById(l.unitId)||{}; return [l.unitId,u.model||"",l.company,l.site,l.taker,fmt(l.outAt),l.outByName||"",l.inAt?fmt(l.inAt):"",l.inByName||"",l.inNote||"",l.checkedByName||"",l.checkedAt?fmt(l.checkedAt):"",l.checkNote||"",gasLoanState(l)]; })); };
 }
 
 /* ══════════════════════════════════════════════════════════
