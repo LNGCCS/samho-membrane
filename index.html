@@ -262,8 +262,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v6.8";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-10-21 · 가스 디텍터 순환 관리 탭";
+const APP_VERSION = "v6.9";           /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-10-22 · 발주 취소 (발주 담당자)";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const GAS_ONLY_VENDORS = ["엘탑","LQC","하이에어","오션"];   /* 가스 디텍터만 쓰는 업체 (부자재 관리 대상 아님) */
@@ -1736,6 +1736,11 @@ function viewReq(){
              (r.status==="ordered"&&canReceive()
               ?'<button class="btn btn-primary btn-sm rRecv" data-line="'+esc(r.id)+'">입고</button> '
               :"")+
+             (r.status==="ordered"&&canOrder()
+              ?'<button class="btn btn-ghost btn-sm rUnord" data-line="'+esc(r.id)+'" '+((r.receivedQty||0)>0
+                  ?'disabled title="부분 입고된 건은 먼저 [입고 취소]로 되돌린 뒤 발주 취소할 수 있습니다"'
+                  :'title="발주 표시를 되돌려 미발주(신청됨) 상태로 만듭니다"')+'>발주 취소</button> '
+              :"")+
              (r.status==="req"
               ?'<button class="btn btn-ghost btn-sm rHold" data-line="'+esc(r.id)+'">보류</button>'
               :r.status==="hold"?'<button class="btn btn-ghost btn-sm rUnhold" data-line="'+esc(r.id)+'">보류 해제</button>':"")
@@ -1753,7 +1758,7 @@ function viewReq(){
       (reqEditable(null)&&rows.length?'<button class="btn btn-primary" id="rSave">변경 사항 저장</button>':"")+
       (canOrder()&&canEditReqCo()&&openCnt?'<button class="btn btn-navy" id="rOrderAll">미발주 '+openCnt+'건 일괄 발주 처리</button>':"")+
     '</div>'+
-    (lv(3)?'<div class="hint" style="margin-top:8px;">발주 = 전산 구매 신청 완료 표시(Lv.3 이상) · 입고 = 실물 도착 확인(Lv.4 부서 공구장 이상, 부분 입고 시 수량 입력). 입고된 실물은 업체가 <b>재고 현황</b>의 [입고]로 재고에 등록합니다.</div>'
+    (lv(3)?'<div class="hint" style="margin-top:8px;">발주 = 전산 구매 신청 완료 표시(발주 담당자) · 발주 취소 = 발주 표시를 되돌려 미발주로(발주 담당자, 입고 전 건만 — 부분 입고 건은 [입고 취소] 후) · 입고 = 실물 도착 확인(Lv.4 부서 공구장 이상, 부분 입고 시 수량 입력). 입고된 실물은 업체가 <b>재고 현황</b>의 [입고]로 재고에 등록합니다.</div>'
           :'<div class="hint" style="margin-top:8px;">[발주완료] 품목은 이미 구매 진행 중이니 중복 신청하지 마세요. 입고 확인은 부서 공구장이 처리하며, 도착한 실물은 <b>재고 현황</b>의 [입고]로 재고에 등록하면 됩니다.</div>');
   }
   return head+body+'</div></div>';
@@ -1864,6 +1869,13 @@ function bindReq(){
   document.querySelectorAll(".rOrd").forEach(function(el){ el.onclick=function(){
     if(!canOrder()){ toast("발주 처리는 발주 담당자만 할 수 있습니다.",true); return; }
     setLine(el.dataset.line,function(r){ r.status="ordered"; r.orderedAt=Date.now(); },"발주 처리되었습니다."); }; });
+  document.querySelectorAll(".rUnord").forEach(function(el){ el.onclick=function(){
+    if(!canOrder()){ toast("발주 취소는 발주 담당자만 할 수 있습니다.",true); return; }
+    var r=lineById(el.dataset.line); if(!r||r.status!=="ordered") return;
+    if((r.receivedQty||0)>0){ toast("부분 입고된 건은 먼저 [입고 취소]로 되돌린 뒤 발주 취소할 수 있습니다.",true); return; }
+    var it=itemById(r.itemId)||{};
+    if(!confirm(r.company+" · "+(it.name||r.itemName)+" "+nf(finalQty(r))+(it.unit||"")+" 발주를 취소합니다.\n상태가 '신청됨'(미발주)으로 돌아가고 구매 취합의 미발주 목록에 다시 나타납니다.\n전산 구매 신청도 함께 취소했는지 확인하세요.")) return;
+    setLine(el.dataset.line,function(r2){ r2.status="req"; r2.orderedAt=null; },"발주가 취소되었습니다. (미발주 상태)"); }; });
   document.querySelectorAll(".rHold").forEach(function(el){ el.onclick=function(){
     setLine(el.dataset.line,function(r){ r.status="hold"; },"보류 처리되었습니다."); }; });
   document.querySelectorAll(".rUnhold").forEach(function(el){ el.onclick=function(){
@@ -2095,7 +2107,9 @@ function buyData(){
       '<td style="text-align:right;font-weight:700;background:#f7f9fb;">'+nf(g.total)+'</td>'+
       '<td style="text-align:right;white-space:nowrap;background:#f7f9fb;">'+won(g.amt)+'</td>'+
       '<td style="white-space:nowrap;">'+stSum.join(" ")+'</td>'+
-      (lv(3)?'<td>'+(g.open&&canOrder()?'<button class="btn btn-navy btn-sm bOrd" data-id="'+esc(it.id)+'">발주</button>':'-')+'</td>':'')+'</tr>';
+      (lv(3)?'<td style="white-space:nowrap;">'+(g.open&&canOrder()?'<button class="btn btn-navy btn-sm bOrd" data-id="'+esc(it.id)+'">발주</button> ':'')+
+        (g.ordered&&canOrder()?'<button class="btn btn-ghost btn-sm bUnord" data-id="'+esc(it.id)+'" title="이 품목의 발주 표시를 되돌립니다 (입고 전 건만)">발주 취소</button>':'')+
+        (((g.open||g.ordered)&&canOrder())?'':'-')+'</td>':'')+'</tr>';
   }).join("")||'<tr><td colspan="'+(8+usedCos.length+(lv(3)?1:0))+'" class="empty">'+esc(m)+' 신청 내역이 없습니다.</td></tr>';
   return {head:head,rows:rows,cos:usedCos,groups:groups,totAmt:totAmt,openItems:openItems,
     sub:nf(groups.length)+'품목 · '+usedCos.length+'개 업체 · 미발주 '+openItems+'품목'};
@@ -2108,7 +2122,7 @@ function viewBuy(){
   (stray.length?'<div class="msg msg-error"><b>관리 대상 목록에 없는 소속의 신청이 있습니다:</b> '+
     stray.map(function(x){ return esc(x.company)+" "+x.requests+"건"; }).join(", ")+
     ' — 소속을 잘못 선택해 가입한 계정이 남긴 데이터입니다. '+(lv(5)?'<b>권한 관리 → 소속 데이터 정리</b>에서 올바른 업체로 이관하세요.':'시스템 관리자에게 정리를 요청하세요.')+'</div>':"")+
-  '<div class="msg msg-info">전 업체(부서 공구실 포함)의 <b>'+esc(S.reqMonth)+'</b> 신청을 품목별로 합산한 구매 취합표입니다. 조정 수량이 있으면 조정값으로 합산되며(* 표시), 여기서 [발주]를 누르면 해당 품목의 모든 업체 신청이 한 번에 발주 처리됩니다.</div>'+
+  '<div class="msg msg-info">전 업체(부서 공구실 포함)의 <b>'+esc(S.reqMonth)+'</b> 신청을 품목별로 합산한 구매 취합표입니다. 조정 수량이 있으면 조정값으로 합산되며(* 표시), 여기서 [발주]를 누르면 해당 품목의 모든 업체 신청이 한 번에 발주 처리되고, [발주 취소]는 그 품목의 입고 전 발주 건을 미발주로 되돌립니다.</div>'+
   '<div class="grid3">'+
     '<div class="statcard"><div class="lbl">'+esc(S.reqMonth)+' 취합 금액</div><div class="val" style="font-size:19px;">'+won(d.totAmt)+'</div></div>'+
     '<div class="statcard"><div class="lbl">취합 품목</div><div class="val">'+nf(d.groups.length)+' <small>종</small></div></div>'+
@@ -2155,11 +2169,26 @@ function bindBuy(){
     if(await push(function(){ return db.from("requests").upsert(rows); },doit.length+"건 발주 처리되었습니다.")){
       S.msg.buy=doit.length+"건이 발주 처리되었습니다."; await pull(); render(); }
   }
+  async function cancelLines(lines,label){
+    if(!canOrder()){ toast("발주 취소는 발주 담당자만 할 수 있습니다. (Lv.5 권한 관리에서 지정)",true); return; }
+    var skip=lines.filter(function(r){ return (r.receivedQty||0)>0; }), doit=lines.filter(function(r){ return !((r.receivedQty||0)>0); });
+    if(!doit.length){ toast(skip.length?"부분 입고된 건은 먼저 [입고 취소]로 되돌린 뒤 발주 취소할 수 있습니다.":"취소할 발주가 없습니다.",true); return; }
+    if(!confirm(label+" "+doit.length+"건의 발주를 취소합니다.\n상태가 '신청됨'(미발주)으로 돌아갑니다."+
+      (skip.length?"\n(부분 입고된 "+skip.length+"건은 제외 — 먼저 [입고 취소] 필요)":"")+"\n전산 구매 신청도 함께 취소했는지 확인하세요.")) return;
+    var now=Date.now();
+    var rows=doit.map(function(r){ var c=Object.assign({},r,{status:"req",orderedAt:null,updatedBy:S.user.id,updatedAt:now}); return M.reqOut(c); });
+    if(await push(function(){ return db.from("requests").upsert(rows); },doit.length+"건 발주 취소되었습니다.")){
+      S.msg.buy=doit.length+"건의 발주를 취소했습니다. (미발주 상태)"+(skip.length?" 부분 입고된 "+skip.length+"건은 제외했습니다.":""); await pull(); render(); }
+  }
   function bindBuyRows(){
     document.querySelectorAll(".bOrd").forEach(function(el){ el.onclick=function(){
       var lines=S.requests.filter(function(r){ return r.month===S.reqMonth&&r.itemId===el.dataset.id&&r.status==="req"&&finalQty(r)>0; });
       var it=itemById(el.dataset.id)||{};
       orderLines(lines,(it.name||"품목")+" 전 업체"); }; });
+    document.querySelectorAll(".bUnord").forEach(function(el){ el.onclick=function(){
+      var lines=S.requests.filter(function(r){ return r.month===S.reqMonth&&r.itemId===el.dataset.id&&r.status==="ordered"; });
+      var it=itemById(el.dataset.id)||{};
+      cancelLines(lines,(it.name||"품목")+" 전 업체"); }; });
   }
   var oa=document.getElementById("bOrderAll");
   if(oa) oa.onclick=function(){
@@ -2940,7 +2969,7 @@ function viewMe(){
      ["부서 공구실 재고·신청 수정",lv(4)],
      ["신청서 (결재용) 출력",lv(2)],
      ["신청 조정·코멘트·보류",lv(3)],
-     ["발주 처리 (발주 담당자)",canOrder()],
+     ["발주 처리 · 발주 취소 (발주 담당자)",canOrder()],
      ["부서 공구실 부자재 신청 수정 (발주 담당자)",isProcurer()],
      ["구매 취합표 (전 업체 품목별 합산·일괄 발주)",lv(3)],
      ["납품 배분 조회 (품목·월로 신청 업체 찾기)",lv(3)],
