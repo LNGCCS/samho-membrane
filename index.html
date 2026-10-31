@@ -262,8 +262,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v6.9";           /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-10-22 · 발주 취소 (발주 담당자)";
+const APP_VERSION = "v6.10";          /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-10-31 · 발주 후 수량 잠금";
 const DEPT = "멤브레인공사부";
 const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
 const GAS_ONLY_VENDORS = ["엘탑","LQC","하이에어","오션"];   /* 가스 디텍터만 쓰는 업체 (부자재 관리 대상 아님) */
@@ -1702,6 +1702,7 @@ function viewReq(){
     (rows.map(function(x){
       var r=x.r, it=x.it, fq=finalQty(r), amt=fq*(it.price||0);
       var edit=reqEditable(r), adm=lv(3)&&canEditReqCo();
+      var locked=(r.status==="ordered"||r.status==="done");   /* 발주 후에는 수량 수정 불가 — 발주 취소 후에만 */
       return '<tr>'+
         '<td class="kr"><b>'+esc(it.name||r.itemName)+'</b>'+seqTag(r)+
           (it.spec?'<div style="font-size:11px;color:var(--text-mute);">'+esc(it.spec)+'</div>':"")+
@@ -1712,17 +1713,18 @@ function viewReq(){
               ?'<div style="font-size:10px;color:var(--danger);font-weight:600;margin-top:2px;">이전 발주 미입고 '+nf(pd.ordered)+esc(it.unit||"")+' ('+esc(others.join(", "))+')</div>':""; })()+
           '</td>'+
         '<td>'+esc(it.unit||"")+'</td><td class="hide-m">'+won(it.price)+'</td>'+
-        (function(){ var stk=stockOf(co,r.itemId), auto=monthlyUse(co,r.itemId), canMU=(edit||adm)&&S.hasMU!==false;
+        (function(){ var stk=stockOf(co,r.itemId), auto=monthlyUse(co,r.itemId), canMU=(edit||adm)&&S.hasMU!==false&&!locked;
           return '<td style="text-align:right;">'+(stk?nf(stk.qty):'<span style="color:#c9d3db;" title="취급 품목 미등록">-</span>')+'</td>'+
                  '<td>'+(canMU
                    ?'<input type="number" min="0" class="rm" data-line="'+esc(r.id)+'" value="'+(r.monthlyUse==null?"":r.monthlyUse)+'" placeholder="'+(auto?nf(auto):"-")+'" title="비우면 최근 90일 실적 평균('+nf(auto)+')을 씁니다" style="width:72px;text-align:right;">'
                    :'<span style="'+((r.monthlyUse!=null)?"font-weight:600;":"color:var(--text-mute);")+'">'+(monthlyUseOf(r)?nf(monthlyUseOf(r)):"-")+'</span>')+'</td>'; })()+
-        '<td>'+(edit&&!lv(3)
+        '<td>'+(edit&&!lv(3)&&!locked
           ?'<input type="number" min="0" class="rq" data-line="'+esc(r.id)+'" value="'+(r.requestedQty==null?"":r.requestedQty)+'" style="width:78px">'
           :nf(r.requestedQty||0))+'</td>'+
-        '<td>'+(adm
+        '<td>'+(adm&&!locked
           ?'<input type="number" min="0" class="ra" data-line="'+esc(r.id)+'" value="'+(r.adjustedQty==null?"":r.adjustedQty)+'" style="width:78px">'
-          :(r.adjustedQty==null?"-":nf(r.adjustedQty)))+'</td>'+
+          :(r.adjustedQty==null?"-":nf(r.adjustedQty))+(adm&&locked
+            ?' <span class="tag t-grey" title="발주 후에는 수량을 수정할 수 없습니다. 수정하려면 발주 담당자가 [발주 취소] 후 고치고 다시 발주하세요">잠금</span>':""))+'</td>'+
         '<td style="white-space:nowrap;">'+won(amt)+'</td>'+
         '<td>'+(adm
           ?'<input type="text" class="rc" data-line="'+esc(r.id)+'" value="'+esc(r.comment||"")+'" placeholder="예: 납품 지연, 9월 초 예정" style="width:150px">'
@@ -1758,7 +1760,7 @@ function viewReq(){
       (reqEditable(null)&&rows.length?'<button class="btn btn-primary" id="rSave">변경 사항 저장</button>':"")+
       (canOrder()&&canEditReqCo()&&openCnt?'<button class="btn btn-navy" id="rOrderAll">미발주 '+openCnt+'건 일괄 발주 처리</button>':"")+
     '</div>'+
-    (lv(3)?'<div class="hint" style="margin-top:8px;">발주 = 전산 구매 신청 완료 표시(발주 담당자) · 발주 취소 = 발주 표시를 되돌려 미발주로(발주 담당자, 입고 전 건만 — 부분 입고 건은 [입고 취소] 후) · 입고 = 실물 도착 확인(Lv.4 부서 공구장 이상, 부분 입고 시 수량 입력). 입고된 실물은 업체가 <b>재고 현황</b>의 [입고]로 재고에 등록합니다.</div>'
+    (lv(3)?'<div class="hint" style="margin-top:8px;">발주 = 전산 구매 신청 완료 표시(발주 담당자) · 발주 취소 = 발주 표시를 되돌려 미발주로(발주 담당자, 입고 전 건만 — 부분 입고 건은 [입고 취소] 후) · 입고 = 실물 도착 확인(Lv.4 부서 공구장 이상, 부분 입고 시 수량 입력). 입고된 실물은 업체가 <b>재고 현황</b>의 [입고]로 재고에 등록합니다.<br><b>발주 후에는 신청·조정·월 소요 수량이 잠깁니다</b>(코멘트만 수정 가능). 수량을 고치려면 발주 담당자가 [발주 취소] → 수정 → 다시 [발주] 하세요. 발주 전에 입력 중인 변경은 먼저 [변경 사항 저장]을 눌러야 발주할 수 있습니다.</div>'
           :'<div class="hint" style="margin-top:8px;">[발주완료] 품목은 이미 구매 진행 중이니 중복 신청하지 마세요. 입고 확인은 부서 공구장이 처리하며, 도착한 실물은 <b>재고 현황</b>의 [입고]로 재고에 등록하면 됩니다.</div>');
   }
   return head+body+'</div></div>';
@@ -1824,6 +1826,9 @@ function bindReq(){
       document.querySelectorAll(".ra").forEach(function(i){ if(i.dataset.line) getLine(i.dataset.line).adjustedQty=i.value===""?null:+i.value; });
       document.querySelectorAll(".rc").forEach(function(i){ if(i.dataset.line) getLine(i.dataset.line).comment=i.value; });
       document.querySelectorAll(".rm").forEach(function(i){ if(i.dataset.line) getLine(i.dataset.line).monthlyUse=i.value===""?null:+i.value; });
+      /* 발주·입고된 줄은 수량(신청·조정·월 소요) 변경을 반영하지 않는다 — 코멘트만 */
+      Object.keys(map).forEach(function(k){ var ex=lineById(k);
+        if(ex&&(ex.status==="ordered"||ex.status==="done")){ map[k].requestedQty=ex.requestedQty; map[k].adjustedQty=ex.adjustedQty; map[k].monthlyUse=ex.monthlyUse; } });
     }
     var all=Object.keys(map).map(function(k){ return map[k]; });
     /* 수량을 비웠거나 0으로 만든 기존 신청(발주 전)은 삭제 */
@@ -1866,9 +1871,13 @@ function bindReq(){
     var r=draftLine(lineId); fn(r);
     if(await push(function(){ return db.from("requests").upsert(M.reqOut(r)); },msg)){ await pull(); render(); }
   }
+  /* 신청 표에 저장하지 않은 입력이 있는가 — 발주하면 화면이 다시 그려져 입력이 사라지고, 발주 후에는 수량이 잠기므로 먼저 저장하게 한다 */
+  function reqDirty(){ var d=false; document.querySelectorAll("main .rq, main .ra, main .rc, main .rm").forEach(function(el){ if(el.value!==el.defaultValue) d=true; }); return d; }
+  function unsavedBlock(){ if(!reqDirty()) return false; toast("저장하지 않은 변경 사항이 있습니다. [변경 사항 저장]을 누른 뒤 발주하세요.",true); return true; }
   document.querySelectorAll(".rOrd").forEach(function(el){ el.onclick=function(){
     if(!canOrder()){ toast("발주 처리는 발주 담당자만 할 수 있습니다.",true); return; }
-    setLine(el.dataset.line,function(r){ r.status="ordered"; r.orderedAt=Date.now(); },"발주 처리되었습니다."); }; });
+    if(unsavedBlock()) return;
+    setLine(el.dataset.line,function(r){ r.status="ordered"; r.orderedAt=Date.now(); },"발주 처리되었습니다. 이 줄의 수량은 이제 잠깁니다."); }; });
   document.querySelectorAll(".rUnord").forEach(function(el){ el.onclick=function(){
     if(!canOrder()){ toast("발주 취소는 발주 담당자만 할 수 있습니다.",true); return; }
     var r=lineById(el.dataset.line); if(!r||r.status!=="ordered") return;
@@ -1908,6 +1917,7 @@ function bindReq(){
   if(oa) oa.onclick=async function(){
     if(!reqGuard()) return;
     if(!canOrder()){ toast("발주 처리는 발주 담당자만 할 수 있습니다.",true); return; }
+    if(unsavedBlock()) return;
     var targets=monthReqs(co).filter(function(r){ return r.status==="req"&&finalQty(r)>0; });
     if(!targets.length) return;
     if(!confirm(targets.length+"건을 발주 완료로 표시합니다. 전산 구매 신청을 마친 뒤에만 사용하세요.")) return;
@@ -2968,7 +2978,7 @@ function viewMe(){
      ["전 업체 조회·관리",lv(3)],
      ["부서 공구실 재고·신청 수정",lv(4)],
      ["신청서 (결재용) 출력",lv(2)],
-     ["신청 조정·코멘트·보류",lv(3)],
+     ["신청 조정·코멘트·보류 (발주 전 줄만 · 발주 후 코멘트만)",lv(3)],
      ["발주 처리 · 발주 취소 (발주 담당자)",canOrder()],
      ["부서 공구실 부자재 신청 수정 (발주 담당자)",isProcurer()],
      ["구매 취합표 (전 업체 품목별 합산·일괄 발주)",lv(3)],
