@@ -253,7 +253,7 @@
    Supabase → Project Settings → API
    ══════════════════════════════════════════════════════════════ */
 const SUPABASE_URL      = "https://mmmyzlplgemewjhapwwk.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1tbXl6bHBsZ2VtZXdqaGFwd3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3ODQwMjAsImV4cCI6MjEwMjM2MDAyMH0.tSloDZIat5jcp2h_BaqYye4zWDcoI-X1og4EnsGwyRA";
+const SUPABASE_ANON_KEY = "sb_publishable_wMH5ovxb_-5Vh9PnVvO7qw_cJfZ6Lww";
 /* ══════════════════════════════════════════════════════════════
    ▲▲▲  나머지는 건드리지 마세요  ▲▲▲
    ══════════════════════════════════════════════════════════════ */
@@ -262,10 +262,10 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 "use strict";
 
 /* ── 기준 정보 ────────────────────────────────────────────── */
-const APP_VERSION = "v6.10";          /* 화면 하단에 표시됩니다 */
-const APP_UPDATED = "2026-10-31 · 발주 후 수량 잠금";
+const APP_VERSION = "v6.11";          /* 화면 하단에 표시됩니다 */
+const APP_UPDATED = "2026-11-06 · 협력업체 추가 (삼영검사)";
 const DEPT = "멤브레인공사부";
-const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀"];
+const VENDORS = ["진영","창성","비스코","DHI","I-Tec","HSG","장비팀","삼영검사"];
 const GAS_ONLY_VENDORS = ["엘탑","LQC","하이에어","오션"];   /* 가스 디텍터만 쓰는 업체 (부자재 관리 대상 아님) */
 const GAS_VENDORS = VENDORS.concat(GAS_ONLY_VENDORS);          /* 가스 디텍터 수령 업체 */
 const COMPANIES = [DEPT].concat(VENDORS).concat(GAS_ONLY_VENDORS);   /* 가입·소속 변경 선택지 */
